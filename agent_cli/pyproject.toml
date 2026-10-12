@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mono2micro-agent"
+version = "0.1.0"
+description = "Local CLI agent for empirical, phased monolith-to-microservice migration and modularization, based on Hammad et al. (2023)."
+readme = "README.md"
+authors = [
+    { name = "Mono2Micro Engineering Team" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.7.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "langchain>=0.2.0",
+    "langchain-core>=0.2.0",
+    "pathspec>=0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+]
+
+[project.scripts]
+agent = "mono2micro.cli:main"
+mono2micro = "mono2micro.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

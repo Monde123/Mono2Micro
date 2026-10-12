@@ -1,0 +1,87 @@
+"""Migration plan models.
+
+Enforces Principles 3, 4, 5, 6, 7 of Hammad et al. (2023):
+- Incremental evolution
+- Low coupling first
+- Strangler Fig routing
+- Explicit data ownership & separation
+- Test criteria & explicit rollback procedure per step
+"""
+
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict
+from enum import Enum
+from datetime import datetime
+
+
+class RoutingStrategyType(str, Enum):
+    API_GATEWAY_REVERSE_PROXY = "API_GATEWAY_REVERSE_PROXY"
+    FEATURE_FLAG_IN_CODE = "FEATURE_FLAG_IN_CODE"
+    STRANGLER_FACADE = "STRANGLER_FACADE"
+    DNS_OR_INGRESS_SPLIT = "DNS_OR_INGRESS_SPLIT"
+    IN_PROCESS_ADAPTER = "IN_PROCESS_ADAPTER"  # For modular monolith internal refactoring
+
+
+class DataSeparationStrategy(str, Enum):
+    SHARED_DATABASE_TEMPORARY = "SHARED_DATABASE_TEMPORARY"  # Discouraged, must have sunset plan
+    LOGICAL_SCHEMA_SPLIT = "LOGICAL_SCHEMA_SPLIT"            # Same DB instance, isolated schemas
+    DATABASE_PER_SERVICE = "DATABASE_PER_SERVICE"            # Separate physical databases
+    DUAL_WRITE_SYNCHRONIZATION = "DUAL_WRITE_SYNCHRONIZATION" # For transition period
+    EVENT_DRIVEN_CDC = "EVENT_DRIVEN_CDC"                    # Change Data Capture / Outbox pattern
+    READ_REPLICA_OR_CACHE = "READ_REPLICA_OR_CACHE"
+
+
+class DataOwnershipPlan(BaseModel):
+    """Specification of data boundary and consistency."""
+    strategy: DataSeparationStrategy
+    source_tables: List[str] = Field(default_factory=list)
+    target_tables: List[str] = Field(default_factory=list)
+    foreign_keys_handled: List[str] = Field(default_factory=list)
+    consistency_model: str = "Strong ACID inside service; Eventual consistency across services"
+    dual_write_required: bool = False
+    migration_script_path: Optional[str] = None
+    data_rollback_strategy: str
+
+
+class RollbackProcedure(BaseModel):
+    """Explicit, testable rollback procedure."""
+    steps_fr: List[str]
+    git_revert_command: str
+    routing_fallback_action: str
+    data_revert_action: str
+    estimated_time_to_recover_minutes: int
+    tested_in_sandbox: bool = False
+
+
+class StranglerStep(BaseModel):
+    """A single, verifiable, reversible migration step."""
+    step_number: int
+    title: str
+    description: str
+    target_bounded_context: str
+    files_in_scope: List[str] = Field(default_factory=list)
+    routing_strategy: RoutingStrategyType
+    routing_details: str
+    data_ownership: DataOwnershipPlan
+    success_criteria: List[str] = Field(default_factory=list)
+    rollback: RollbackProcedure
+    
+    # Safety and permissions
+    is_destructive: bool = False
+    is_data_migration: bool = False
+    approved_by_human: bool = False
+    approval_token: Optional[str] = None
+    applied_at: Optional[datetime] = None
+    applied_git_branch: Optional[str] = None
+
+
+class StranglerPlan(BaseModel):
+    """Overall phased migration roadmap."""
+    plan_id: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    target_architecture_summary: str
+    steps: List[StranglerStep]
+    estimated_total_steps: int
+    prerequisites_met: bool = False
+    prerequisite_blockers: List[str] = Field(default_factory=list)
+    principles_applied: List[str] = Field(default_factory=list)

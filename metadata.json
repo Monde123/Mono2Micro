@@ -1,0 +1,8 @@
+{
+  "name": "Mono_Micro",
+  "description": "Agent IA local en ligne de commande pour faire évoluer et modulariser des monolithes logiciels selon les principes de Hammad, Sahmoud & Abu Ghazala (2023).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
