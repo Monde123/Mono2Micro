@@ -53,6 +53,7 @@ class SafeRepoScanner:
     def __init__(self, target_dir: str):
         self.validator = SafePathValidator(target_dir)
         self.root_path = self.validator.base_path
+        self._content_test_frameworks: Set[str] = set()
 
     def scan(self) -> DiscoveryReport:
         """Run full passive inspection and compile DiscoveryReport."""
@@ -123,6 +124,8 @@ class SafeRepoScanner:
                         observation=f"Fichier de migration ou schéma SQL détecté ({file})"
                     ))
                     fact_counter += 1
+
+        test_frameworks.update(self._content_test_frameworks)
 
         db_coupling = DatabaseCouplingInfo(
             db_type=", ".join(detected_db_types) if detected_db_types else "Non déterminé (fichiers ORM ou SQL)",
@@ -235,7 +238,43 @@ class SafeRepoScanner:
                         start_id += 1
                         break
 
+        elif path.name in ("pom.xml", "build.gradle"):
+            lowered = content.lower()
+            for needle, fw in [
+                ("spring-boot", "Spring Boot"), ("spring-webmvc", "Spring MVC"),
+                ("mybatis", "MyBatis"), ("hibernate", "Hibernate"),
+                ("jakarta.persistence", "JPA"), ("javax.persistence", "JPA"),
+                ("stripes", "Stripes"), ("quarkus", "Quarkus"),
+            ]:
+                if needle in lowered:
+                    frameworks.add(fw)
+                    facts.append(VerifiedFact(
+                        fact_id=f"FACT-PKG-{start_id}",
+                        evidence_type=FactEvidenceType.PACKAGE_DEPENDENCY,
+                        file_path=rel_path,
+                        observation=f"Dépendance Java {fw} identifiée dans {path.name}"
+                    ))
+                    start_id += 1
+            for needle, tf in [("junit", "junit"), ("testng", "testng"), ("mockito", "mockito")]:
+                if needle in lowered:
+                    tests.add(tf)
+
         return facts, frameworks, tests
+
+    def _detect_test_frameworks_in_content(self, content: str) -> Set[str]:
+        """Identify the test framework actually used by a test source file."""
+        found: Set[str] = set()
+        checks = [
+            (r"^\s*(import|from)\s+unittest\b", "unittest"),
+            (r"^\s*(import|from)\s+pytest\b|^def\s+test_\w+\s*\(", "pytest"),
+            (r"org\.junit", "junit"),
+            (r"org\.testng", "testng"),
+            (r"\b(describe|it|test)\s*\(\s*['\"]", "js-test-runner"),
+        ]
+        for pattern, name in checks:
+            if re.search(pattern, content, re.MULTILINE):
+                found.add(name)
+        return found
 
     def _inspect_source_file(
         self, path: Path, rel_path: str, lang: str, start_id: int
@@ -256,7 +295,7 @@ class SafeRepoScanner:
         entrypoint = None
 
         # Check for HTTP routes or controllers
-        if re.search(r'(@app\.(get|post|put|delete)|router\.(get|post|put|delete)|app\.(get|post|use)|@Controller)', content, re.IGNORECASE):
+        if re.search(r'(@app\.(get|post|put|delete)|router\.(get|post|put|delete)|app\.(get|post|use)|@Controller|@\w+\.route\(|@(Get|Post|Put|Delete|Request)Mapping|@RestController|@Path\()', content, re.IGNORECASE):
             comp_type = ComponentType.API_ROUTER
             entrypoint = rel_path
             facts.append(VerifiedFact(
@@ -288,9 +327,21 @@ class SafeRepoScanner:
             for m in prisma_match:
                 db_hints.append((m, "Prisma Schema"))
 
+        # Java: JPA entities and MyBatis mappers
+        if lang == "Java":
+            for m in re.findall(r'@Entity[\s\S]{0,200}?class\s+([A-Za-z0-9_]+)', content):
+                comp_type = ComponentType.DATABASE_ORM
+                db_hints.append((m, "Relational (JPA)"))
+            if re.search(r'@Mapper\b|interface\s+\w+Mapper\b', content):
+                mapper = re.search(r'interface\s+(\w+?)Mapper\b', content)
+                if mapper:
+                    comp_type = ComponentType.DATABASE_ORM
+                    db_hints.append((mapper.group(1), "Relational (MyBatis)"))
+
         # Check for test files
         if "test" in path.name.lower() or "spec" in path.name.lower():
             comp_type = ComponentType.TEST_SUITE
+            self._content_test_frameworks.update(self._detect_test_frameworks_in_content(content))
 
         if comp_type != ComponentType.UNKNOWN:
             component = DetectedComponent(
