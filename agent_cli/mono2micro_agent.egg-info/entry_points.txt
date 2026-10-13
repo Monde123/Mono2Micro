@@ -1,3 +1,0 @@
-[console_scripts]
-agent = mono2micro.cli:main
-mono2micro = mono2micro.cli:main
