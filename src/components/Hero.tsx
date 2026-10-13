@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Copy, Check, ArrowRight, ExternalLink } from 'lucide-react';
+import { Copy, Check, ExternalLink } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export const Hero: React.FC = () => {
+  const { language, t } = useLanguage();
   const [runtime, setRuntime] = useState<'node' | 'python'>('node');
   const [copied, setCopied] = useState(false);
 
@@ -18,7 +20,7 @@ export const Hero: React.FC = () => {
       
       {/* Quiet Academic Reference */}
       <div className="mb-6 inline-flex items-center gap-2 text-xs text-zinc-500 font-mono">
-        <span>Hatem Hammad et al. (2023)</span>
+        <span>{t.hero.paperCite}</span>
         <span aria-hidden="true">·</span>
         <a
           href="https://www.alphaxiv.org/abs/2306.08851"
@@ -32,12 +34,12 @@ export const Hero: React.FC = () => {
 
       {/* Main Headline */}
       <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white max-w-3xl mx-auto leading-tight">
-        Modernisez vos monolithes avec discernement
+        {t.hero.headline}
       </h1>
 
       {/* Subtitle */}
       <p className="mt-5 text-base sm:text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-        Un agent local pour inspecter votre architecture en lecture seule, challenger les hypothèses et évaluer le <strong>Monolithe Modulaire</strong> avant toute extraction distribuée.
+        {t.hero.subtitle}
       </p>
 
       {/* Interactive Runtime Selector & Quick Command */}
@@ -53,7 +55,7 @@ export const Hero: React.FC = () => {
                 : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            Node.js (npx)
+            {t.hero.runtimeNode}
           </button>
           <button
             onClick={() => setRuntime('python')}
@@ -63,7 +65,7 @@ export const Hero: React.FC = () => {
                 : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            Python (CLI)
+            {t.hero.runtimePython}
           </button>
         </div>
 
@@ -74,7 +76,7 @@ export const Hero: React.FC = () => {
           <button
             onClick={copyCommand}
             className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors ml-2"
-            title="Copier la commande"
+            title={language === 'fr' ? 'Copier la commande' : 'Copy command'}
           >
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
           </button>
@@ -84,11 +86,11 @@ export const Hero: React.FC = () => {
 
       {/* 3 Key Tenets */}
       <div className="mt-12 pt-8 border-t border-zinc-800/60 flex flex-wrap items-center justify-center gap-y-2 gap-x-6 text-xs text-zinc-500">
-        <div>100% Local & Privé</div>
+        <div>{t.hero.tenetLocal}</div>
         <div>·</div>
-        <div>Avocat du diable bloquant</div>
+        <div>{t.hero.tenetAdversary}</div>
         <div>·</div>
-        <div>Réversibilité Git garantie</div>
+        <div>{t.hero.tenetGit}</div>
       </div>
 
     </section>

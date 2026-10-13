@@ -1,8 +1,10 @@
 [
   "tests/test_agents.py::test_domain_analyst_orders_low_coupling_first",
+  "tests/test_agents.py::test_migration_architect_honors_user_specification_preference",
   "tests/test_agents.py::test_migration_architect_recommends_modular_monolith_on_small_team",
   "tests/test_agents.py::test_test_adversary_blocks_when_table_accessed_outside_scope",
   "tests/test_cli.py::test_cli_analyze_command",
+  "tests/test_cli.py::test_cli_config_command",
   "tests/test_cli.py::test_cli_help",
   "tests/test_cli.py::test_cli_plan_command",
   "tests/test_cli.py::test_cli_test_plan_command",

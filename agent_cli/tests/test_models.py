@@ -172,8 +172,16 @@ def test_final_report_markdown_generation():
         cited_paper_principles=[PAPER_PRINCIPLES[PaperPrincipleId.CLARIFY_OBJECTIVES]],
         next_recommended_actions_fr=["Mettre en cache les requêtes de recherche", "Isoler le module de recherche"],
     )
-    md = report.to_markdown()
-    assert "# Rapport d'Évolution Architecturale" in md
-    assert "Convert Monolithic Application to Microservice Application" in md
-    assert "MODULAR_MONOLITH" in md
-    assert "Prisma ORM dependency detected" in md
+    md_fr = report.to_markdown(lang="fr")
+    assert "# Rapport d'Évolution Architecturale" in md_fr
+    assert "Convert Monolithic Application to Microservice Application" in md_fr
+    assert "MODULAR_MONOLITH" in md_fr
+    assert "Prisma ORM dependency detected" in md_fr
+
+    md_en = report.to_markdown(lang="en")
+    assert "# Architectural Evolution Report" in md_en
+    assert "Convert Monolithic Application to Microservice Application" in md_en
+    assert "Executive Summary" in md_en
+    assert "Target Project" in md_en
+    assert "MODULAR_MONOLITH" in md_en
+    assert "Prisma ORM dependency detected" in md_en

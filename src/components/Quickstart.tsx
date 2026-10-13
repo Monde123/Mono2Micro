@@ -1,47 +1,13 @@
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export const Quickstart: React.FC = () => {
+  const { language, t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'node' | 'python'>('node');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  const nodeSteps = [
-    {
-      title: "1. Exécution directe (Zéro installation)",
-      cmd: "npx mono2micro analyze",
-      note: "Télécharge et exécute temporairement l'agent sur le répertoire courant."
-    },
-    {
-      title: "2. Ou installation globale Node.js",
-      cmd: "npm install -g mono2micro",
-      note: "Permet d'invoquer la commande 'mono2micro' ou 'agent' partout."
-    },
-    {
-      title: "3. Clarifier l'objectif & Planifier",
-      cmd: "npx mono2micro plan --goal CODEBASE_MODULARITY",
-      note: "Compare les 4 options et évalue le Monolithe Modulaire."
-    }
-  ];
-
-  const pythonSteps = [
-    {
-      title: "1. Installer via pip / pipx",
-      cmd: "pip install mono2micro-agent",
-      note: "Package Python autonome indépendant de votre projet cible."
-    },
-    {
-      title: "2. Lancer la découverte (Lecture Seule)",
-      cmd: "agent analyze --path .",
-      note: "Scanne le dépôt sans jamais exécuter les scripts du projet."
-    },
-    {
-      title: "3. Évaluer les options architecturales",
-      cmd: "agent plan --goal CODEBASE_MODULARITY",
-      note: "Identifie les contextes délimités et prépare l'étape 1."
-    }
-  ];
-
-  const currentSteps = activeTab === 'node' ? nodeSteps : pythonSteps;
+  const currentSteps = activeTab === 'node' ? t.quickstart.nodeSteps : t.quickstart.pythonSteps;
 
   const copyCmd = (cmd: string, index: number) => {
     navigator.clipboard.writeText(cmd);
@@ -55,10 +21,10 @@ export const Quickstart: React.FC = () => {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-            Installation & Démarrage
+            {t.quickstart.title}
           </h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Choisissez votre environnement de prédilection.
+            {t.quickstart.subtitle}
           </p>
         </div>
 
@@ -70,7 +36,7 @@ export const Quickstart: React.FC = () => {
               activeTab === 'node' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            Node.js (npm / npx)
+            {t.quickstart.nodeTab}
           </button>
           <button
             onClick={() => setActiveTab('python')}
@@ -78,7 +44,7 @@ export const Quickstart: React.FC = () => {
               activeTab === 'python' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            Python (pip / pipx)
+            {t.quickstart.pythonTab}
           </button>
         </div>
       </div>
@@ -91,7 +57,7 @@ export const Quickstart: React.FC = () => {
           >
             <div>
               <h3 className="text-sm font-semibold text-white">{st.title}</h3>
-              <p className="text-xs text-zinc-500 mt-0.5">{st.note}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{st.note}</p>
             </div>
 
             <div className="flex items-center gap-2 bg-zinc-950 px-3 py-2 rounded-lg border border-zinc-800 font-mono text-xs text-zinc-200 shrink-0">
@@ -99,10 +65,14 @@ export const Quickstart: React.FC = () => {
               <span>{st.cmd}</span>
               <button
                 onClick={() => copyCmd(st.cmd, i)}
-                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors ml-2"
-                title="Copier la commande"
+                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors ml-1"
+                title={language === 'fr' ? 'Copier la commande' : 'Copy command'}
               >
-                {copiedIndex === i ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-500" />}
+                {copiedIndex === i ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
               </button>
             </div>
           </div>

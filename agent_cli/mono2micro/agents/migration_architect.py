@@ -26,6 +26,9 @@ from mono2micro.models.plan import (
 )
 
 
+from mono2micro.config import UserSpecifications
+
+
 class MigrationArchitectAgent:
     """Agent evaluating options and designing the progressive migration plan."""
 
@@ -33,14 +36,15 @@ class MigrationArchitectAgent:
         self,
         discovery: DiscoveryReport,
         objectives: MigrationObjectiveClarification,
-        domains: List[BoundedContextHypothesis]
+        domains: List[BoundedContextHypothesis],
+        user_specs: Optional[UserSpecifications] = None
     ) -> OptionsComparisonMatrix:
         """Systematically evaluate the 4 architectural options."""
         evaluations: List[OptionEvaluation] = []
 
         has_tests = len(discovery.test_frameworks_detected) > 0
         tight_domains_count = sum(1 for d in domains if d.coupling_level == CouplingLevel.TIGHT)
-        small_team = objectives.current_team_size <= 3
+        small_team = (user_specs.team_size <= 3) if user_specs else (objectives.current_team_size <= 3)
 
         # Option 1: KEEP_MONOLITH
         keep_suitability = 0.85 if small_team and objectives.primary_goal not in (
@@ -139,8 +143,22 @@ class MigrationArchitectAgent:
         ))
 
         # Determine best recommendation
-        # If no tests and highly coupled, recommend POSTPONE or MODULAR_MONOLITH
-        if not has_tests:
+        # 1. First check if user explicitly set a preferred architecture in user_specifications
+        user_pref = None
+        if user_specs and user_specs.preferred_architecture:
+            try:
+                user_pref = ArchitectureOptionType(user_specs.preferred_architecture)
+            except ValueError:
+                pass
+
+        if user_pref:
+            recommended = user_pref
+            synth = (
+                f"Option sélectionnée conformément à la préférence explicite persistée par l'équipe : {user_pref.value}. "
+                f"Validation des contraintes et des risques associés appliquée."
+            )
+        # 2. If no tests and highly coupled, recommend POSTPONE or MODULAR_MONOLITH
+        elif not has_tests:
             recommended = ArchitectureOptionType.POSTPONE_MIGRATION if tight_domains_count > 1 else ArchitectureOptionType.MODULAR_MONOLITH
             synth = (
                 "Absence de suite de tests automatisés robuste détectée. Découper vers des microservices maintenant violerait "

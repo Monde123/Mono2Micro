@@ -61,4 +61,30 @@ def test_cli_verify_command():
         result = runner.invoke(app, ["verify", "--path", tmp, "--step", "1", "--test-cmd", "echo 'smoke test passed'"])
         assert result.exit_code == 0
         assert "QUALITY GATE" in result.stdout
-        assert "Rapport complet exporté dans" in result.stdout
+        assert "Rapports complets exportés" in result.stdout
+        
+        # Verify both language reports exist
+        state_dir = root / ".mono2micro"
+        assert (state_dir / "report.md").exists()
+        assert (state_dir / "report_fr.md").exists()
+        assert (state_dir / "report_en.md").exists()
+        assert (state_dir / "report.json").exists()
+
+        en_content = (state_dir / "report_en.md").read_text(encoding="utf-8")
+        assert "Architectural Evolution Report" in en_content
+        assert "Executive Summary" in en_content
+
+        fr_content = (state_dir / "report_fr.md").read_text(encoding="utf-8")
+        assert "Rapport d'Évolution Architecturale" in fr_content
+        assert "Synthèse Exécutive" in fr_content
+
+
+def test_cli_config_command():
+    with tempfile.TemporaryDirectory() as tmp:
+        result = runner.invoke(app, ["config", "--path", tmp, "--forbid", "LedgerCore", "--team-size", "4", "--lang", "en"])
+        assert result.exit_code == 0
+        assert "LedgerCore" in result.stdout
+        assert "4 développeur(s)" in result.stdout
+        assert "English (en)" in result.stdout
+        assert "user_specifications.json" in result.stdout
+

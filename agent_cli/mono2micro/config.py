@@ -1,12 +1,50 @@
-"""Configuration and state persistence for local project runs."""
+"""Configuration, state persistence and user specifications for local project runs."""
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, List
+from pydantic import BaseModel, Field
 from mono2micro.core.security import SafePathValidator
 
 
 STATE_DIR_NAME = ".mono2micro"
+USER_SPECS_FILENAME = "user_specifications.json"
+
+
+class UserSpecifications(BaseModel):
+    """User-defined domain preferences, team constraints and safety boundaries."""
+    custom_domains: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Domaines métier personnalisés et leurs chemins de fichiers associés (ex: {'Facturation': ['src/billing/**']})"
+    )
+    forbidden_extractions: List[str] = Field(
+        default_factory=list,
+        description="Modules ou tables interdits d'extraction en microservice (ex: ['Ledger', 'AuthCore'])"
+    )
+    preferred_architecture: Optional[str] = Field(
+        default=None,
+        description="Choix d'architecture préféré par l'équipe (MODULAR_MONOLITH, STRANGLER_MICROSERVICES, KEEP_MONOLITH)"
+    )
+    team_size: int = Field(
+        default=2,
+        description="Nombre d'ingénieurs dans l'équipe travaillant sur le projet"
+    )
+    authorized_test_commands: List[str] = Field(
+        default_factory=lambda: ["npm test", "pytest"],
+        description="Commandes de test formellement autorisées pour le Quality Gate"
+    )
+    privacy_level: str = Field(
+        default="FULL_CODE_REDACTED",
+        description="Politique de confidentialité : FULL_CODE_REDACTED, METADATA_ONLY ou ANONYMIZED_SYMBOLS"
+    )
+    business_rules_notes: Optional[str] = Field(
+        default=None,
+        description="Notes et contraintes métier spécifiques rédigées par l'équipe"
+    )
+    language: str = Field(
+        default="fr",
+        description="Langue par défaut des rapports et analyses ('fr' ou 'en')"
+    )
 
 
 class ProjectStateStore:
@@ -51,3 +89,27 @@ class ProjectStateStore:
         """Save a Markdown or text artifact inside .mono2micro/."""
         target = self.state_dir / filename
         target.write_text(content, encoding="utf-8")
+
+    def load_text(self, filename: str) -> Optional[str]:
+        target = self.state_dir / filename
+        if not target.exists():
+            return None
+        return target.read_text(encoding="utf-8")
+
+    def get_user_specifications(self) -> UserSpecifications:
+        """Load persistent user specifications or return defaults."""
+        raw = self.load_json(USER_SPECS_FILENAME)
+        if raw:
+            try:
+                return UserSpecifications(**raw)
+            except Exception:
+                pass
+        
+        # Return and save defaults
+        default_specs = UserSpecifications()
+        self.save_user_specifications(default_specs)
+        return default_specs
+
+    def save_user_specifications(self, specs: UserSpecifications):
+        """Persist user specifications to .mono2micro/user_specifications.json."""
+        self.save_json(USER_SPECS_FILENAME, specs.model_dump())

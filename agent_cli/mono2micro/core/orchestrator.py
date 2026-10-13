@@ -36,6 +36,7 @@ from mono2micro.agents.test_adversary import TestAdversaryAgent
 from mono2micro.agents.implementer import ImplementerAgent
 from mono2micro.agents.verifier import VerifierAgent
 from mono2micro.core.permissions import PermissionEngine
+from mono2micro.config import ProjectStateStore, UserSpecifications
 
 
 class MigrationOrchestrator:
@@ -44,6 +45,8 @@ class MigrationOrchestrator:
     def __init__(self, target_directory: str):
         self.target_directory = target_directory
         self.permissions = PermissionEngine(target_directory)
+        self.store = ProjectStateStore(target_directory)
+        self.user_specs = self.store.get_user_specifications()
         
         # Instantiate agents
         self.repo_analyzer = RepoAnalyzerAgent(target_directory)
@@ -102,7 +105,7 @@ class MigrationOrchestrator:
         if not self.discovery_report:
             self.step_1_discover()
 
-        self.candidate_domains = self.domain_analyst.analyze_domains(self.discovery_report)
+        self.candidate_domains = self.domain_analyst.analyze_domains(self.discovery_report, self.user_specs)
         return self.candidate_domains
 
     def step_4_compare_options(self) -> OptionsComparisonMatrix:
@@ -120,7 +123,8 @@ class MigrationOrchestrator:
         self.options_matrix = self.migration_architect.compare_options(
             self.discovery_report,
             self.objectives,
-            self.candidate_domains
+            self.candidate_domains,
+            user_specs=self.user_specs
         )
         return self.options_matrix
 
@@ -256,14 +260,29 @@ class MigrationOrchestrator:
                 f"Option recommandée : {self.options_matrix.recommended_option.value}. "
                 f"{self.options_matrix.synthesis_fr}"
             ),
+            executive_summary_en=(
+                f"Architectural modernisation audit based on research by Hatem Hammad et al. (2023). "
+                f"Recommended strategy: {self.options_matrix.recommended_option.value}. "
+                f"Evaluation enforces bounded context isolation, devil's advocate challenge, and strict non-negotiable Quality Gates."
+            ),
             next_recommended_actions_fr=[
                 "Confirmer ou ajuster avec les développeurs les frontières des domaines candidats (hypotheses).",
                 "Mettre en place ou consolider la suite de tests de non-régression avant toute séparation de données.",
                 "Examiner les objections soulevées par le rôle contradicteur.",
                 "Valider explicitement la première étape pilote de refactoring si la migration est confirmée."
             ],
+            next_recommended_actions_en=[
+                "Confirm or adjust bounded context candidate boundaries with engineering teams.",
+                "Consolidate automated non-regression test suite prior to database extraction.",
+                "Review objections and hidden couplings highlighted by the Devil's Advocate agent.",
+                "Explicitly approve and apply the initial pilot refactoring step on isolated branch."
+            ],
             open_risks_fr=[
                 "Risque d'échec si la séparation de base de données est réalisée sans synchronisation miroir (dual writes).",
                 "Risque de surcoût d'exploitation si les microservices sont adoptés avec une équipe réduite."
+            ],
+            open_risks_en=[
+                "Failure risk if database decomposition is conducted without mirror dual-write synchronization.",
+                "Operational overhead penalty if distributed microservices are adopted with a small team."
             ]
         )

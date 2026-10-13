@@ -1,16 +1,19 @@
 import React from 'react';
 import { ShieldCheck, ShieldAlert, CheckSquare2 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export const SafetyGuarantees: React.FC = () => {
+  const { t } = useLanguage();
+
   return (
     <section id="securite" className="py-16 max-w-5xl mx-auto px-4 sm:px-6">
       
       <div className="mb-8">
         <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-          Garanties de sécurité
+          {t.safety.title}
         </h2>
         <p className="mt-1 text-sm text-zinc-400">
-          Trois règles d'or pour préserver votre code et vos secrets.
+          {t.safety.subtitle}
         </p>
       </div>
 
@@ -21,10 +24,10 @@ export const SafetyGuarantees: React.FC = () => {
             <ShieldCheck className="w-4 h-4" />
           </div>
           <h3 className="text-sm font-semibold text-white mb-2">
-            100% Local & Étanche
+            {t.safety.s1Title}
           </h3>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Le CLI s'exécute sur votre machine. Vos clés API restent dans votre environnement local. Ce site web vitrine est purement informatif et ne reçoit aucun code de projet.
+            {t.safety.s1Desc}
           </p>
         </div>
 
@@ -33,10 +36,10 @@ export const SafetyGuarantees: React.FC = () => {
             <ShieldAlert className="w-4 h-4" />
           </div>
           <h3 className="text-sm font-semibold text-white mb-2">
-            L'Avocat du Diable Bloquant
+            {t.safety.s2Title}
           </h3>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Avant toute modification, un sous-agent contradicteur recherche les couplages cachés. Il bloque l'étape si une table de base de données est partagée sans abstraction.
+            {t.safety.s2Desc}
           </p>
         </div>
 
@@ -45,10 +48,10 @@ export const SafetyGuarantees: React.FC = () => {
             <CheckSquare2 className="w-4 h-4" />
           </div>
           <h3 className="text-sm font-semibold text-white mb-2">
-            Quality Gate sans Moyenne
+            {t.safety.s3Title}
           </h3>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Le passage en production est strictement binaire. Aucun calcul de moyenne ne peut compenser un échec critique. Si un test obligatoire échoue, la livraison est rejetée.
+            {t.safety.s3Desc}
           </p>
         </div>
 

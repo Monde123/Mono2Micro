@@ -54,6 +54,29 @@ def test_migration_architect_recommends_modular_monolith_on_small_team():
     assert "Monolithe Modulaire" in matrix.synthesis_fr
 
 
+def test_migration_architect_honors_user_specification_preference():
+    architect = MigrationArchitectAgent()
+    discovery = DiscoveryReport(
+        target_directory="/tmp/fake",
+        test_frameworks_detected=["jest"]
+    )
+    objectives = MigrationObjectiveClarification(
+        primary_goal=MigrationGoalType.CODEBASE_MODULARITY,
+        user_rationale="Small team",
+        current_team_size=2
+    )
+
+    domains = DomainAnalystAgent("/tmp/fake").analyze_domains(discovery)
+    
+    # User explicitly requests KEEP_MONOLITH via specifications
+    from mono2micro.config import UserSpecifications
+    specs = UserSpecifications(preferred_architecture="KEEP_MONOLITH", team_size=2)
+    matrix = architect.compare_options(discovery, objectives, domains, user_specs=specs)
+
+    assert matrix.recommended_option == ArchitectureOptionType.KEEP_MONOLITH
+    assert "KEEP_MONOLITH" in matrix.synthesis_fr
+
+
 def test_test_adversary_blocks_when_table_accessed_outside_scope():
     adversary = TestAdversaryAgent()
     discovery = DiscoveryReport(

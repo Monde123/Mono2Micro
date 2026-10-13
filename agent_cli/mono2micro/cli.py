@@ -17,7 +17,7 @@ from rich.console import Console
 from rich.prompt import Prompt, Confirm
 
 from mono2micro.core.orchestrator import MigrationOrchestrator
-from mono2micro.config import ProjectStateStore
+from mono2micro.config import ProjectStateStore, UserSpecifications
 from mono2micro.ui.rich_formatters import ConsoleFormatter
 from mono2micro.models.objectives import MigrationGoalType
 from mono2micro.models.options import ArchitectureOptionType
@@ -212,6 +212,7 @@ def cmd_verify(
     path: str = typer.Option(".", "--path", "-p", help="Chemin du projet."),
     step: int = typer.Option(1, "--step", "-s", help="Numéro d'étape à vérifier."),
     test_cmd: Optional[str] = typer.Option(None, "--test-cmd", help="Commande de test autorisée (ex: 'npm test' ou 'pytest')."),
+    lang: Optional[str] = typer.Option(None, "--lang", "-l", help="Langue du rapport ('fr' ou 'en'). Par défaut selon configuration."),
 ):
     """Exécution des contrôles autorisés, étanchéité architecturale et Quality Gate sans moyenne."""
     ConsoleFormatter.print_banner()
@@ -239,17 +240,116 @@ def cmd_verify(
     # Generate full report
     report = orchestrator.step_10_generate_report()
     store = ProjectStateStore(resolved_path)
-    store.save_json("report.json", report.model_dump())
-    store.save_text("report.md", report.to_markdown())
+    specs = store.get_user_specifications()
+    chosen_lang = (lang or specs.language or "fr").lower()
 
-    console.print("[dim green]✓ Rapport complet exporté dans :[/]")
-    console.print("  • [white].mono2micro/report.md[/] [dim](Markdown formaté)[/]")
-    console.print("  • [white].mono2micro/report.json[/] [dim](Données brutes structurées)[/]\n")
+    # Save primary report in requested language, plus both explicit language files
+    store.save_json("report.json", report.model_dump())
+    store.save_text("report.md", report.to_markdown(lang=chosen_lang))
+    store.save_text("report_fr.md", report.to_markdown(lang="fr"))
+    store.save_text("report_en.md", report.to_markdown(lang="en"))
+
+    lang_label = "Français" if chosen_lang == "fr" else "English"
+    console.print(f"[dim green]✓ Rapports complets exportés (Langue active: [bold white]{lang_label}[/]) :[/]")
+    console.print(f"  • [white].mono2micro/report.md[/] [dim](Actif: {lang_label})[/]")
+    console.print("  • [white].mono2micro/report_fr.md[/] [dim](Version française)[/]")
+    console.print("  • [white].mono2micro/report_en.md[/] [dim](English version)[/]")
+    console.print("  • [white].mono2micro/report.json[/] [dim](Données brutes bilingues structurées)[/]\n")
 
     if qg_result.overall_passed:
         console.print("[bold green]🎉 Succès : Le Quality Gate est validé. L'étape peut être fusionnée après relecture de PR.[/]")
     else:
         console.print("[bold red]⛔ Livraison bloquée : Un ou plusieurs critères obligatoires sont en échec ou non vérifiés.[/]")
+
+
+@app.command(name="config")
+def cmd_config(
+    path: str = typer.Option(".", "--path", "-p", help="Chemin du projet."),
+    set_domain: Optional[str] = typer.Option(None, "--set-domain", help="Définir un domaine personnalisé : 'Nom=chemin1,chemin2'"),
+    forbid: Optional[str] = typer.Option(None, "--forbid", help="Interdire l'extraction d'un module ou d'une table."),
+    team_size: Optional[int] = typer.Option(None, "--team-size", help="Définir la taille persistante de l'équipe."),
+    prefer: Optional[str] = typer.Option(None, "--prefer", help="Option préférée : MODULAR_MONOLITH, STRANGLER_MICROSERVICES, KEEP_MONOLITH."),
+    add_test_cmd: Optional[str] = typer.Option(None, "--add-test-cmd", help="Ajouter une commande de test autorisée pour le Quality Gate."),
+    privacy: Optional[str] = typer.Option(None, "--privacy", help="Niveau de confidentialité : FULL_CODE_REDACTED, METADATA_ONLY, ANONYMIZED_SYMBOLS."),
+    lang: Optional[str] = typer.Option(None, "--lang", "-l", help="Définir la langue par défaut des rapports et du projet ('fr' ou 'en')."),
+    init: bool = typer.Option(False, "--init", help="Initialiser le fichier de spécifications .mono2micro/user_specifications.json."),
+):
+    """Gérer la persistance des spécificités utilisateur, domaines métiers et règles d'équipe."""
+    ConsoleFormatter.print_banner()
+    resolved_path = str(Path(path).resolve())
+    store = ProjectStateStore(resolved_path)
+    specs = store.get_user_specifications()
+
+    updated = False
+
+    if set_domain:
+        if "=" in set_domain:
+            d_name, d_paths = set_domain.split("=", 1)
+            patterns = [p.strip() for p in d_paths.split(",") if p.strip()]
+            specs.custom_domains[d_name.strip()] = patterns
+            console.print(f"[bold green]✓ Domaine personnalisé enregistré :[/] [white]{d_name.strip()}[/] -> {patterns}")
+            updated = True
+        else:
+            console.print("[red]Format attendu pour --set-domain : 'Nom=chemin1,chemin2'[/]")
+
+    if forbid:
+        if forbid not in specs.forbidden_extractions:
+            specs.forbidden_extractions.append(forbid)
+            console.print(f"[bold green]✓ Module/Table marqué interdit d'extraction :[/] [white]{forbid}[/]")
+            updated = True
+
+    if team_size is not None:
+        specs.team_size = team_size
+        console.print(f"[bold green]✓ Taille d'équipe persistée :[/] [white]{team_size} développeur(s)[/]")
+        updated = True
+
+    if prefer:
+        specs.preferred_architecture = prefer.upper()
+        console.print(f"[bold green]✓ Architecture préférée enregistrée :[/] [white]{prefer.upper()}[/]")
+        updated = True
+
+    if add_test_cmd:
+        if add_test_cmd not in specs.authorized_test_commands:
+            specs.authorized_test_commands.append(add_test_cmd)
+            console.print(f"[bold green]✓ Commande de test autorisée :[/] [white]{add_test_cmd}[/]")
+            updated = True
+
+    if privacy:
+        specs.privacy_level = privacy.upper()
+        console.print(f"[bold green]✓ Niveau de confidentialité persisté :[/] [white]{privacy.upper()}[/]")
+        updated = True
+
+    if lang:
+        normalized_lang = lang.strip().lower()
+        if normalized_lang in ["fr", "en"]:
+            specs.language = normalized_lang
+            lang_name = "Français" if normalized_lang == "fr" else "English"
+            console.print(f"[bold green]✓ Langue par défaut configurée :[/] [white]{lang_name} ({normalized_lang})[/]")
+            updated = True
+        else:
+            console.print("[red]Format attendu pour --lang : 'fr' ou 'en'[/]")
+
+    if updated or init:
+        store.save_user_specifications(specs)
+        console.print("[dim green]✓ Spécifications enregistrées dans .mono2micro/user_specifications.json[/]\n")
+
+    # Display current configuration
+    from rich.table import Table
+    table = Table(title="[bold cyan]Spécificités & Contraintes Utilisateur Persistées[/]", box=None)
+    table.add_column("Paramètre", style="bold white")
+    table.add_column("Valeur Actuelle", style="cyan")
+
+    table.add_row("Taille de l'équipe", f"{specs.team_size} développeur(s)")
+    table.add_row("Architecture préférée", specs.preferred_architecture or "Auto-évaluation par l'architecte")
+    table.add_row("Langue des rapports", f"{'Français (fr)' if specs.language == 'fr' else 'English (en)'}")
+    table.add_row("Politique confidentialité", specs.privacy_level)
+    table.add_row("Domaines personnalisés", ", ".join(f"{k} ({len(v)} chemins)" for k, v in specs.custom_domains.items()) or "Aucun (inférence automatique)")
+    table.add_row("Extractions interdites", ", ".join(specs.forbidden_extractions) or "Aucune")
+    table.add_row("Commandes de tests autorisées", ", ".join(specs.authorized_test_commands))
+
+    console.print(table)
+    console.print()
+    console.print("[dim]Fichier éditable directement : .mono2micro/user_specifications.json[/]\n")
 
 
 def main():

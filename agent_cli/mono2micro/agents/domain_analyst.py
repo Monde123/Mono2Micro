@@ -9,7 +9,7 @@ All domain proposals are hypotheses requiring user confirmation.
 import os
 import re
 from pathlib import Path
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 from mono2micro.models.discovery import DiscoveryReport, ComponentType
 from mono2micro.models.domains import (
     BoundedContextHypothesis,
@@ -17,6 +17,7 @@ from mono2micro.models.domains import (
     DomainEvidenceSource,
     CouplingLevel,
 )
+from mono2micro.config import UserSpecifications
 
 
 class DomainAnalystAgent:
@@ -25,9 +26,32 @@ class DomainAnalystAgent:
     def __init__(self, target_directory: str):
         self.target_directory = target_directory
 
-    def analyze_domains(self, discovery: DiscoveryReport) -> List[BoundedContextHypothesis]:
-        """Infer candidate bounded contexts from files, route prefixes, and DB models."""
+    def analyze_domains(
+        self,
+        discovery: DiscoveryReport,
+        user_specs: Optional[UserSpecifications] = None
+    ) -> List[BoundedContextHypothesis]:
+        """Infer candidate bounded contexts from files, route prefixes, and DB models, honoring user specifications."""
         candidate_map: Dict[str, Dict] = {}
+
+        # 0. Incorporate explicit user specifications if defined
+        if user_specs and user_specs.custom_domains:
+            for custom_name, file_patterns in user_specs.custom_domains.items():
+                candidate_map[custom_name] = {
+                    "evidences": [
+                        DomainEvidence(
+                            source_type=DomainEvidenceSource.USER_DOMAIN_SPEC,
+                            file_or_symbol_path=", ".join(file_patterns),
+                            description="Domaine métier explicitement défini par l'équipe",
+                            strength=1.0
+                        )
+                    ],
+                    "entities": [],
+                    "endpoints": [],
+                    "files": list(file_patterns),
+                    "tables": [],
+                    "user_confirmed": True
+                }
 
         # 1. Inspect directory structure hints (e.g., src/auth, src/billing, src/catalog)
         target_path = Path(self.target_directory)
@@ -128,6 +152,13 @@ class DomainAnalystAgent:
                 feasibility = 0.90
                 coupling_notes = "Faible couplage repéré. Excellent candidat pour un premier pas Strangler Fig."
 
+            # Check if domain extraction is forbidden by user specifications
+            is_forbidden = user_specs and any(fb.lower() == name.lower() for fb in user_specs.forbidden_extractions)
+            if is_forbidden:
+                feasibility = 0.05
+                coupling = CouplingLevel.TIGHT
+                coupling_notes = "Extraction en microservice formellement interdite par la spécification utilisateur."
+
             hypo = BoundedContextHypothesis(
                 context_id=f"CTX-{idx:02d}-{name.upper()}",
                 name=name,
@@ -138,7 +169,7 @@ class DomainAnalystAgent:
                 coupling_level=coupling,
                 coupling_notes=coupling_notes,
                 shared_database_tables=data["tables"],
-                user_confirmed=None,  # Must be confirmed by human
+                user_confirmed=data.get("user_confirmed", None),
                 user_feedback=None,
                 extraction_feasibility_score=feasibility
             )
