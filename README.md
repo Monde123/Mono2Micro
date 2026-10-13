@@ -132,6 +132,36 @@ Ce fichier est directement éditable :
 
 ---
 
+## 🤖 Mode LLM (clé API fournie par l'utilisateur)
+
+Par défaut l'agent travaille en **heuristiques locales**, sans aucun appel réseau. Si vous le souhaitez, vous pouvez brancher **votre propre clé API** pour deux usages : affiner les Bounded Contexts (`plan`) et proposer le code d'une étape (`apply`).
+
+```bash
+# 1. Choisir le fournisseur (openai, anthropic, gemini ; "openai" couvre aussi les serveurs compatibles, ex. Ollama)
+agent config --llm-provider anthropic --llm-model <nom-du-modèle>
+agent config --llm-provider openai --llm-base-url http://localhost:11434/v1 --llm-model <modèle-local>
+
+# 2. Fournir la clé : variable d'environnement (recommandé) ou saisie masquée
+export ANTHROPIC_API_KEY="..."        # OPENAI_API_KEY / GEMINI_API_KEY selon le fournisseur
+agent plan --ask-api-key              # saisie masquée, valable pour cette exécution seulement
+
+# 3. Désactiver
+agent config --llm-off
+```
+
+| Commande | Ce qui est envoyé au fournisseur | Effet |
+|---|---|---|
+| `plan` | **Métadonnées uniquement** (chemins, noms de modèles, frameworks) | Hypothèses de domaines supplémentaires, jamais présentées comme des faits ; résultat mis en cache dans `.mono2micro/llm_contexts.json` |
+| `apply` | **Code du périmètre de l'étape**, secrets masqués, après votre accord explicite | Proposition de fichiers complets, affichée sous forme de **diff** avant toute écriture |
+
+Garanties :
+
+- La clé n'est **jamais** écrite sur disque, dans `.mono2micro/`, dans les rapports ou les logs, et ne figure jamais dans une URL.
+- La sortie du modèle est traitée comme **non fiable** : seuls des chemins normalisés du périmètre (ou sous `services/<contexte>/`) sont acceptés ; traversées de chemin, contenus binaires, trop volumineux ou contenant un marqueur de secret masqué sont rejetés.
+- L'approbation humaine ne couvre que **les fichiers proposés**. L'écriture exige une branche Git isolée et refuse d'écraser des modifications non commitées. Les fichiers restent non commités pour relecture (`git diff`), puis `agent verify`.
+- La génération de code exige `privacy_level = FULL_CODE_REDACTED` : avec `METADATA_ONLY` ou `ANONYMIZED_SYMBOLS` le modèle ne voit pas le code réel et ses fichiers ne pourraient pas être réécrits.
+- Toute erreur LLM dans `plan` retombe sur les heuristiques locales avec un avertissement.
+
 ## 🔒 Sécurité & Confidentialité
 
 - **100% Local** : Le CLI fonctionne exclusivement sur votre machine. Aucun code source, fichier ou rapport privé n'est téléversé vers un tiers ou vers la vitrine web.
@@ -145,7 +175,7 @@ Ce fichier est directement éditable :
 Pour lancer la suite de tests automatisés :
 
 ```bash
-# Tests unitaires et d'intégration Python (33 tests)
+# Tests unitaires et d'intégration Python (86 tests)
 pytest agent_cli/tests -v
 
 # Vérification TypeScript de l'interface
