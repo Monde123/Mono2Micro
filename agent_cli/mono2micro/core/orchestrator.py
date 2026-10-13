@@ -156,10 +156,24 @@ class MigrationOrchestrator:
         self.adversarial_reviews[step_number] = review
         return review
 
+    def propose_step_changes(self, step_number: int):
+        """Ask the configured LLM for the step's code changes (nothing is written)."""
+        if not self.llm:
+            raise ValueError("Aucun LLM configuré : agent config --llm-provider <openai|anthropic|gemini>.")
+        if not self.strangler_plan:
+            self.step_5_plan_migration()
+        step = next((s for s in self.strangler_plan.steps if s.step_number == step_number), None)
+        if not step:
+            raise ValueError(f"Étape {step_number} introuvable dans le plan de migration.")
+        return self.implementer.propose_modifications(
+            step, self.llm, self.user_specs.privacy_level, self.user_specs.business_rules_notes
+        )
+
     def step_7_request_human_approval(
         self,
         step_number: int,
-        user_input_confirmation: str
+        user_input_confirmation: str,
+        files_allowed: Optional[List[str]] = None,
     ) -> str:
         """Step 7: Enforce explicit approval gate with token."""
         if not self.strangler_plan:
@@ -180,7 +194,7 @@ class MigrationOrchestrator:
         record = self.permissions.request_approval_for_step(
             step_number=step_number,
             title=step.title,
-            files_allowed=step.files_in_scope,
+            files_allowed=files_allowed if files_allowed is not None else step.files_in_scope,
             is_destructive=step.is_destructive,
             is_data_migration=step.is_data_migration,
             user_confirmation_input=user_input_confirmation
