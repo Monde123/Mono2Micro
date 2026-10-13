@@ -224,10 +224,14 @@ def cmd_verify(
     orchestrator.step_4_compare_options()
     orchestrator.step_5_plan_migration()
 
+    # Commands come from the explicit --test-cmd flag (typed by the user) and from
+    # the user's configured allow-list (`config --add-test-cmd`). Nothing else runs.
+    specs = orchestrator.user_specs
+    ordered = ([test_cmd] if test_cmd else []) + list(specs.authorized_test_commands)
     commands = []
-    if test_cmd:
-        commands.append((test_cmd, f"Suite de test utilisateur autorisée : {test_cmd}"))
-    else:
+    for cmd in dict.fromkeys(ordered):  # de-duplicate, keep order
+        commands.append((cmd, f"Suite de test utilisateur autorisée : {cmd}"))
+    if not commands:
         # Default internal syntax/check command
         commands.append(("git status", "Contrôle de propreté de l'arbre Git"))
 

@@ -218,7 +218,7 @@ class MigrationOrchestrator:
         criteria: List[QualityGateCriterion] = []
 
         # 1. Architectural boundary check
-        boundary_crit = self.verifier.run_architectural_boundary_check(step)
+        boundary_crit = self.verifier.run_architectural_boundary_check(step, self.discovery_report)
         criteria.append(boundary_crit)
 
         # 2. Run authorized user commands

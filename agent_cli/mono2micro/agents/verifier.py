@@ -7,6 +7,8 @@ Enforces Workflow Step 9:
 - Blocks delivery immediately if any mandatory criterion fails or was not verified.
 """
 
+import hashlib
+import shlex
 import subprocess
 from typing import List, Optional
 from pathlib import Path
@@ -17,6 +19,7 @@ from mono2micro.models.quality_gate import (
     CriterionStatus,
 )
 from mono2micro.models.plan import StranglerStep
+from mono2micro.models.discovery import DiscoveryReport
 from mono2micro.core.security import SafePathValidator
 
 
@@ -27,22 +30,42 @@ class VerifierAgent:
         self.target_directory = target_directory
         self.validator = SafePathValidator(target_directory)
 
-    def run_architectural_boundary_check(self, step: StranglerStep) -> QualityGateCriterion:
-        """Verify that extracted code does not contain unauthorized cross-database queries."""
+    def run_architectural_boundary_check(
+        self,
+        step: StranglerStep,
+        discovery: Optional[DiscoveryReport] = None,
+    ) -> QualityGateCriterion:
+        """Verify that the step's data boundary is sealed.
+
+        Two checks are performed:
+        1. Files outside the step scope must not access tables owned by the step
+           (uses the static discovery's cross-module table access map).
+        2. Files inside the scope must not keep direct connections to the legacy DB.
+        """
         criterion_id = f"QG-ARCH-{step.step_number}"
         title = f"Étanchéité architecturale du domaine '{step.target_bounded_context}'"
 
-        violations = []
+        violations: List[str] = []
+        in_scope = set(step.files_in_scope)
+
+        # 1. Foreign accessors of tables owned by this step
+        if discovery is not None:
+            access_map = discovery.database_coupling.cross_module_table_access
+            for table in step.data_ownership.source_tables:
+                outsiders = [f for f in access_map.get(table, []) if f not in in_scope]
+                if outsiders:
+                    violations.append(
+                        f"Table '{table}' encore accédée hors périmètre par : {', '.join(outsiders[:3])}"
+                    )
+
+        # 2. Residual legacy connections inside the scope
         for rel_file in step.files_in_scope:
             try:
                 abs_file = self.validator.resolve_safe(rel_file)
                 if abs_file.exists() and abs_file.is_file():
                     content = abs_file.read_text(encoding="utf-8", errors="ignore")
-                    # Check for direct SQL queries to tables outside this domain
-                    for src_table in step.data_ownership.source_tables:
-                        # Check if file has direct connection to old DB
-                        if "mysql://old" in content or "postgres://legacy" in content:
-                            violations.append(f"Connexion résiduelle directe détectée dans {rel_file}")
+                    if "mysql://old" in content or "postgres://legacy" in content:
+                        violations.append(f"Connexion résiduelle directe détectée dans {rel_file}")
             except Exception:
                 pass
 
@@ -74,12 +97,18 @@ class VerifierAgent:
         is_mandatory: bool = True
     ) -> QualityGateCriterion:
         """Run an authorized test command in the target directory."""
-        criterion_id = f"QG-TEST-{hash(command_str) % 10000:04d}"
+        digest = hashlib.sha1(command_str.encode("utf-8")).hexdigest()[:6]
+        criterion_id = f"QG-TEST-{digest}"
         
         try:
+            # No shell: the command is tokenized and executed directly, so
+            # pipes, '&&', redirections and substitutions are never interpreted.
+            argv = shlex.split(command_str)
+            if not argv:
+                raise ValueError("Commande vide")
             res = subprocess.run(
-                command_str,
-                shell=True,
+                argv,
+                shell=False,
                 cwd=self.target_directory,
                 capture_output=True,
                 text=True,
