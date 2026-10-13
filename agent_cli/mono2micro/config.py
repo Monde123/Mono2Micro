@@ -45,6 +45,18 @@ class UserSpecifications(BaseModel):
         default="fr",
         description="Langue par défaut des rapports et analyses ('fr' ou 'en')"
     )
+    llm_provider: Optional[str] = Field(
+        default=None,
+        description="Fournisseur LLM : openai (ou compatible), anthropic, gemini. None = mode heuristique local. La clé API n'est JAMAIS stockée ici."
+    )
+    llm_model: Optional[str] = Field(
+        default=None,
+        description="Nom du modèle à utiliser chez le fournisseur choisi"
+    )
+    llm_base_url: Optional[str] = Field(
+        default=None,
+        description="URL de base personnalisée (serveur compatible OpenAI, ex: Ollama local)"
+    )
 
 
 class ProjectStateStore:
