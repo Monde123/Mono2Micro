@@ -42,8 +42,9 @@ from mono2micro.config import ProjectStateStore, UserSpecifications
 class MigrationOrchestrator:
     """Master workflow coordinator enforcing state transitions and permissions."""
 
-    def __init__(self, target_directory: str):
+    def __init__(self, target_directory: str, llm=None):
         self.target_directory = target_directory
+        self.llm = llm
         self.permissions = PermissionEngine(target_directory)
         self.store = ProjectStateStore(target_directory)
         self.user_specs = self.store.get_user_specifications()
@@ -105,7 +106,9 @@ class MigrationOrchestrator:
         if not self.discovery_report:
             self.step_1_discover()
 
-        self.candidate_domains = self.domain_analyst.analyze_domains(self.discovery_report, self.user_specs)
+        self.candidate_domains = self.domain_analyst.analyze_domains(
+            self.discovery_report, self.user_specs, llm=self.llm, cache=self.store
+        )
         return self.candidate_domains
 
     def step_4_compare_options(self) -> OptionsComparisonMatrix:

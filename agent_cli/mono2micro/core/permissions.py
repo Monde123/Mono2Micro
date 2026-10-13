@@ -7,6 +7,7 @@ Enforces Workflow Steps 7 & 8:
 - Destructive operations, migrations, and deployments require separate confirmation.
 """
 
+import posixpath
 import hashlib
 import time
 from enum import Enum
@@ -106,13 +107,28 @@ class PermissionEngine:
         # Check scope boundary: cannot touch files outside approved set
         allowed_set = set(record.files_allowed)
         for tf in target_files:
-            if tf not in allowed_set:
+            if not self._is_in_scope(tf, allowed_set):
                 raise PermissionDeniedError(
                     f"VIOLATION DE PÉRIMÈTRE: Le fichier '{tf}' n'est pas dans le périmètre autorisé pour l'étape {step_number}. "
                     f"Fichiers autorisés: {sorted(allowed_set)}"
                 )
 
         return record
+
+    @staticmethod
+    def _is_in_scope(target: str, allowed: set) -> bool:
+        """Exact match, or inside an approved directory prefix (entries ending with '/').
+
+        The path is normalized first so 'services/x/../../src/secret.py' cannot
+        sneak out of an approved prefix.
+        """
+        if target in allowed:
+            return True
+        unified = target.replace("\\", "/")
+        norm = posixpath.normpath(unified)
+        if norm != unified or norm.startswith(("/", "..")) or norm == ".":
+            return False
+        return any(a.endswith("/") and norm.startswith(a) for a in allowed)
 
     def mark_step_executed(self, step_number: int):
         """Mark step as completed, invalidating its approval token for replay."""

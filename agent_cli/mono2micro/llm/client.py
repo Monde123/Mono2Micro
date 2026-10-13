@@ -17,7 +17,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from mono2micro.core.security import SecretMasker
 
 
 SUPPORTED_PROVIDERS = ("openai", "anthropic", "gemini")
@@ -149,6 +148,7 @@ class HTTPLLMClient(LLMClient):
     # ---- transport ------------------------------------------------------------
 
     def _scrub(self, text: str) -> str:
+        from mono2micro.core.security import SecretMasker  # lazy: avoids import cycle
         if self._api_key:
             text = text.replace(self._api_key, "[REDACTED_KEY]")
         return SecretMasker.mask_text(text)

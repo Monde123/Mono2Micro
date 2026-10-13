@@ -6,6 +6,8 @@ Decompose along domain boundaries (DDD) rather than technical horizontal tiers.
 All domain proposals are hypotheses requiring user confirmation.
 """
 
+import hashlib
+import json
 import os
 import re
 from pathlib import Path
@@ -18,6 +20,12 @@ from mono2micro.models.domains import (
     CouplingLevel,
 )
 from mono2micro.config import UserSpecifications
+from mono2micro.core.security import SecretMasker
+from mono2micro.llm import LLMClient, LLMError, extract_json
+
+LLM_CONTEXTS_CACHE = "llm_contexts.json"
+_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_ -]{0,39}$")
+MAX_LLM_CONTEXTS = 12
 
 
 class DomainAnalystAgent:
@@ -29,7 +37,9 @@ class DomainAnalystAgent:
     def analyze_domains(
         self,
         discovery: DiscoveryReport,
-        user_specs: Optional[UserSpecifications] = None
+        user_specs: Optional[UserSpecifications] = None,
+        llm: Optional[LLMClient] = None,
+        cache=None,
     ) -> List[BoundedContextHypothesis]:
         """Infer candidate bounded contexts from files, route prefixes, and DB models, honoring user specifications."""
         candidate_map: Dict[str, Dict] = {}
@@ -134,6 +144,16 @@ class DomainAnalystAgent:
                 "tables": discovery.database_coupling.detected_models_or_tables
             }
 
+        # 4b. Optional LLM refinement (cached for reproducibility across commands)
+        self._merge_llm_contexts(candidate_map, discovery, user_specs, llm, cache)
+
+        return self._build_hypotheses(candidate_map, user_specs)
+
+    def _build_hypotheses(
+        self,
+        candidate_map: Dict[str, Dict],
+        user_specs: Optional[UserSpecifications],
+    ) -> List[BoundedContextHypothesis]:
         # 5. Build BoundedContextHypothesis instances with coupling analysis
         hypotheses: List[BoundedContextHypothesis] = []
         for idx, (name, data) in enumerate(candidate_map.items(), 1):
@@ -178,6 +198,113 @@ class DomainAnalystAgent:
         # Sort by feasibility descending: lowest coupled first (Principle 4)
         hypotheses.sort(key=lambda h: h.extraction_feasibility_score, reverse=True)
         return hypotheses
+
+    # ------------------------------------------------------------------ LLM
+
+    def _llm_payload(self, discovery: DiscoveryReport, candidate_names: List[str],
+                     user_specs: Optional[UserSpecifications]) -> Dict:
+        """Metadata-only view of the repository (paths and names, never file contents)."""
+        access = discovery.database_coupling.cross_module_table_access
+        return {
+            "languages": discovery.languages_detected,
+            "frameworks": discovery.frameworks_detected,
+            "components": [
+                {"path": c.relative_path, "type": c.component_type.value}
+                for c in discovery.components[:200]
+            ],
+            "data_models": discovery.database_coupling.detected_models_or_tables[:100],
+            "model_access": {k: v[:10] for k, v in list(access.items())[:100]},
+            "heuristic_candidates": sorted(candidate_names),
+            "team_notes": SecretMasker.mask_text((user_specs.business_rules_notes or "")[:1000]) if user_specs else "",
+        }
+
+    def _merge_llm_contexts(self, candidate_map, discovery, user_specs, llm, cache) -> None:
+        payload = self._llm_payload(discovery, list(candidate_map), user_specs)
+        raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+        key = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+        contexts = None
+        cached = cache.load_json(LLM_CONTEXTS_CACHE) if cache is not None else None
+        if cached and cached.get("key") == key:
+            contexts = cached.get("contexts", [])          # reproducible: no new call
+        elif llm is not None:
+            try:
+                reply = llm.complete(self._LLM_SYSTEM, "Dépôt analysé (métadonnées) :\n" + SecretMasker.mask_text(raw))
+                contexts = self._validate_llm_contexts(extract_json(reply), discovery)
+                if cache is not None:
+                    cache.save_json(LLM_CONTEXTS_CACHE, {"key": key, "contexts": contexts})
+            except LLMError as exc:
+                discovery.analysis_limitations.append(
+                    f"Affinage LLM des domaines indisponible ({exc}) : heuristiques locales uniquement."
+                )
+                return
+        if not contexts:
+            return
+
+        router_paths = {c.relative_path for c in discovery.components if c.component_type == ComponentType.API_ROUTER}
+        existing = {name.lower(): name for name in candidate_map}
+        for ctx in contexts:
+            name = existing.get(ctx["name"].lower(), ctx["name"])
+            entry = candidate_map.setdefault(name, {
+                "evidences": [], "entities": [], "endpoints": [], "files": [], "tables": []
+            })
+            if candidate_map[name].get("user_confirmed"):
+                continue  # explicit user domains are never overridden by the model
+            for path in ctx["files"]:
+                entry["evidences"].append(DomainEvidence(
+                    source_type=DomainEvidenceSource.LLM_INFERENCE,
+                    file_or_symbol_path=path,
+                    description=f"Hypothèse du modèle : {ctx['rationale']}"[:300],
+                    strength=0.55,
+                ))
+                if path not in entry["files"]:
+                    entry["files"].append(path)
+                if path in router_paths and path not in entry["endpoints"]:
+                    entry["endpoints"].append(path)
+            for table in ctx["tables"]:
+                if table not in entry["tables"]:
+                    entry["tables"].append(table)
+                    entry["entities"].append(table)
+                    entry["evidences"].append(DomainEvidence(
+                        source_type=DomainEvidenceSource.LLM_INFERENCE,
+                        file_or_symbol_path=table,
+                        description=f"Hypothèse du modèle : {ctx['rationale']}"[:300],
+                        strength=0.55,
+                    ))
+
+    _LLM_SYSTEM = (
+        "Tu es un architecte logiciel expert en Domain-Driven Design. À partir des SEULES métadonnées "
+        "fournies (chemins de fichiers, modèles de données, frameworks), propose des Bounded Contexts "
+        "candidats. Règles strictes : n'invente aucune règle métier ; n'utilise que des chemins et des "
+        "modèles présents dans les données ; si les preuves sont insuffisantes, renvoie une liste vide. "
+        'Réponds UNIQUEMENT par un JSON : {"contexts":[{"name":str,"responsibility":str,'
+        '"files":[chemins fournis],"tables":[modèles fournis],"rationale":str}]}.'
+    )
+
+    def _validate_llm_contexts(self, data, discovery: DiscoveryReport) -> List[Dict]:
+        """Keep only grounded, well-formed contexts: model output is untrusted."""
+        if not isinstance(data, dict) or not isinstance(data.get("contexts"), list):
+            raise LLMError("Format de contextes inattendu dans la réponse du modèle.")
+        known_files = {c.relative_path for c in discovery.components}
+        known_models = set(discovery.database_coupling.detected_models_or_tables)
+        clean: List[Dict] = []
+        for item in data["contexts"][:MAX_LLM_CONTEXTS]:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name", "")).strip()
+            if not _NAME_RE.match(name):
+                continue
+            files = [f for f in item.get("files", []) if isinstance(f, str) and f in known_files]
+            tables = [t for t in item.get("tables", []) if isinstance(t, str) and t in known_models]
+            if not files and not tables:
+                continue  # ungrounded proposal: discarded
+            clean.append({
+                "name": name[:1].upper() + name[1:],
+                "files": files,
+                "tables": tables,
+                "rationale": str(item.get("rationale", ""))[:300],
+            })
+        return clean
 
     def _infer_domain_from_name(self, name: str) -> str:
         clean = re.sub(r'(Controller|Router|Service|Repository|Model|Route)$', '', name, flags=re.IGNORECASE)

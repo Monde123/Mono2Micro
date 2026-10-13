@@ -17,6 +17,7 @@ class DomainEvidenceSource(str, Enum):
     SERVICE_CLASS = "SERVICE_CLASS"
     EVENT_TOPIC = "EVENT_TOPIC"
     USER_DOMAIN_SPEC = "USER_DOMAIN_SPEC"
+    LLM_INFERENCE = "LLM_INFERENCE"  # hypothesis proposed by the language model
 
 
 class DomainEvidence(BaseModel):
