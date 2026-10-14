@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-10-13T17:14:34.942387Z",
+  "timestamp": "2026-10-14T01:12:45.866874Z",
   "corpus_runs": [
     {
       "benchmark_name": "jpetstore-6",
       "baseline_mode": "HEURISTIC_ONLY",
-      "timestamp": "2026-10-13T17:14:34.941919Z",
+      "timestamp": "2026-10-14T01:12:45.866504Z",
       "duration_seconds": 0.05,
       "files_analyzed": 52,
       "tables_analyzed": 10,
@@ -24,7 +24,7 @@
     {
       "benchmark_name": "jpetstore-6",
       "baseline_mode": "LLM_ONLY_NO_TOOLS",
-      "timestamp": "2026-10-13T17:14:34.941975Z",
+      "timestamp": "2026-10-14T01:12:45.866553Z",
       "duration_seconds": 0.05,
       "files_analyzed": 52,
       "tables_analyzed": 5,
@@ -44,7 +44,7 @@
     {
       "benchmark_name": "jpetstore-6",
       "baseline_mode": "HYBRID_AGENT",
-      "timestamp": "2026-10-13T17:14:34.942001Z",
+      "timestamp": "2026-10-14T01:12:45.866576Z",
       "duration_seconds": 0.05,
       "files_analyzed": 52,
       "tables_analyzed": 10,
@@ -64,7 +64,7 @@
     {
       "benchmark_name": "daytrader-7",
       "baseline_mode": "HEURISTIC_ONLY",
-      "timestamp": "2026-10-13T17:14:34.942065Z",
+      "timestamp": "2026-10-14T01:12:45.866598Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 5,
@@ -84,7 +84,7 @@
     {
       "benchmark_name": "daytrader-7",
       "baseline_mode": "LLM_ONLY_NO_TOOLS",
-      "timestamp": "2026-10-13T17:14:34.942089Z",
+      "timestamp": "2026-10-14T01:12:45.866615Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 3,
@@ -104,7 +104,7 @@
     {
       "benchmark_name": "daytrader-7",
       "baseline_mode": "HYBRID_AGENT",
-      "timestamp": "2026-10-13T17:14:34.942133Z",
+      "timestamp": "2026-10-14T01:12:45.866631Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 6,
@@ -124,7 +124,7 @@
     {
       "benchmark_name": "acmeair-nodejs",
       "baseline_mode": "HEURISTIC_ONLY",
-      "timestamp": "2026-10-13T17:14:34.942163Z",
+      "timestamp": "2026-10-14T01:12:45.866649Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 3,
@@ -144,7 +144,7 @@
     {
       "benchmark_name": "acmeair-nodejs",
       "baseline_mode": "LLM_ONLY_NO_TOOLS",
-      "timestamp": "2026-10-13T17:14:34.942189Z",
+      "timestamp": "2026-10-14T01:12:45.866671Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 2,
@@ -164,7 +164,7 @@
     {
       "benchmark_name": "acmeair-nodejs",
       "baseline_mode": "HYBRID_AGENT",
-      "timestamp": "2026-10-13T17:14:34.942206Z",
+      "timestamp": "2026-10-14T01:12:45.866687Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 4,
@@ -184,7 +184,7 @@
     {
       "benchmark_name": "plants-by-websphere",
       "baseline_mode": "HEURISTIC_ONLY",
-      "timestamp": "2026-10-13T17:14:34.942225Z",
+      "timestamp": "2026-10-14T01:12:45.866715Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 5,
@@ -204,7 +204,7 @@
     {
       "benchmark_name": "plants-by-websphere",
       "baseline_mode": "LLM_ONLY_NO_TOOLS",
-      "timestamp": "2026-10-13T17:14:34.942241Z",
+      "timestamp": "2026-10-14T01:12:45.866735Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 2,
@@ -224,7 +224,7 @@
     {
       "benchmark_name": "plants-by-websphere",
       "baseline_mode": "HYBRID_AGENT",
-      "timestamp": "2026-10-13T17:14:34.942256Z",
+      "timestamp": "2026-10-14T01:12:45.866750Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 5,
@@ -244,7 +244,7 @@
     {
       "benchmark_name": "ecommerce-fastapi",
       "baseline_mode": "HEURISTIC_ONLY",
-      "timestamp": "2026-10-13T17:14:34.942271Z",
+      "timestamp": "2026-10-14T01:12:45.866777Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 5,
@@ -264,7 +264,7 @@
     {
       "benchmark_name": "ecommerce-fastapi",
       "baseline_mode": "LLM_ONLY_NO_TOOLS",
-      "timestamp": "2026-10-13T17:14:34.942283Z",
+      "timestamp": "2026-10-14T01:12:45.866793Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 2,
@@ -284,7 +284,7 @@
     {
       "benchmark_name": "ecommerce-fastapi",
       "baseline_mode": "HYBRID_AGENT",
-      "timestamp": "2026-10-13T17:14:34.942304Z",
+      "timestamp": "2026-10-14T01:12:45.866807Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 5,
@@ -304,7 +304,7 @@
     {
       "benchmark_name": "taskhub-express",
       "baseline_mode": "HEURISTIC_ONLY",
-      "timestamp": "2026-10-13T17:14:34.942335Z",
+      "timestamp": "2026-10-14T01:12:45.866831Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 4,
@@ -324,7 +324,7 @@
     {
       "benchmark_name": "taskhub-express",
       "baseline_mode": "LLM_ONLY_NO_TOOLS",
-      "timestamp": "2026-10-13T17:14:34.942362Z",
+      "timestamp": "2026-10-14T01:12:45.866853Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 2,
@@ -344,7 +344,7 @@
     {
       "benchmark_name": "taskhub-express",
       "baseline_mode": "HYBRID_AGENT",
-      "timestamp": "2026-10-13T17:14:34.942379Z",
+      "timestamp": "2026-10-14T01:12:45.866867Z",
       "duration_seconds": 0.05,
       "files_analyzed": 44,
       "tables_analyzed": 4,
