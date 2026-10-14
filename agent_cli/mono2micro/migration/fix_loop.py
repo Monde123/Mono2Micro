@@ -51,13 +51,16 @@ class GenerateTestFixLoop:
         initial_modifications: Dict[str, str],
         test_command: str,
         fix_generator: Optional[Callable[[int, str], Optional[Dict[str, str]]]] = None,
-        tokens_per_attempt: int = 450,
-        cost_per_attempt: float = 0.0012,
+        tokens_per_attempt: Optional[int] = None,
+        cost_per_attempt: Optional[float] = None,
     ) -> FixLoopSession:
         """Run up to 3 generate->test->fix attempts, restoring repo on failure."""
+        tok_per_att = tokens_per_attempt if tokens_per_attempt is not None else 0
+        cost_per_att = cost_per_attempt if cost_per_attempt is not None else 0.0
         start_session_time = time.time()
         session = FixLoopSession(
             step_number=step.step_number,
+
             target_context=step.target_bounded_context,
             max_attempts=self.max_attempts,
         )
@@ -92,13 +95,13 @@ class GenerateTestFixLoop:
                 proposed_diff=f"{len(current_mods)} files modified in attempt {attempt_idx}",
                 test_passed=passed,
                 test_output=test_out[:500],
-                tokens_used=tokens_per_attempt,
-                cost_usd=cost_per_attempt,
+                tokens_used=tok_per_att,
+                cost_usd=cost_per_att,
                 duration_seconds=att_duration,
             )
             session.attempts.append(attempt)
-            session.total_tokens_used += tokens_per_attempt
-            session.total_cost_usd += cost_per_attempt
+            session.total_tokens_used += tok_per_att
+            session.total_cost_usd += cost_per_att
 
             if passed:
                 session.final_success = True

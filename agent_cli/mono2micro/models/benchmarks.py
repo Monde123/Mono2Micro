@@ -41,25 +41,32 @@ class BenchmarkCorpusItem(BaseModel):
 class BenchmarkRunResult(BaseModel):
     benchmark_name: str
     baseline_mode: BenchmarkBaselineMode
+    status: str = "MEASURED"
+    n: Optional[int] = 1
+    raw_output_path: Optional[str] = None
+    tool_commit: Optional[str] = None
+    not_run_reason: Optional[str] = None
     timestamp: datetime = Field(default_factory=utc_now)
-    duration_seconds: float
-    files_analyzed: int
-    tables_analyzed: int
-    domains_proposed: int
-    modularity_q: float
-    inter_domain_coupling_ratio: float
-    shared_tables_count: int
+    duration_seconds: Optional[float] = None
+    files_analyzed: Optional[int] = None
+    tables_analyzed: Optional[int] = None
+    domains_proposed: Optional[int] = None
+    modularity_q: Optional[float] = None
+    inter_domain_coupling_ratio: Optional[float] = None
+    shared_tables_count: Optional[int] = None
     precision: Optional[float] = None
     recall: Optional[float] = None
-    devil_advocate_false_block_rate: float = 0.0
-    end_to_end_tests_passed: bool = False
-    attempts_needed: int = 1
-    tokens_consumed: int = 0
-    cost_usd: float = 0.0
+    devil_advocate_false_block_rate: Optional[float] = None
+    end_to_end_tests_passed: Optional[bool] = None
+    attempts_needed: Optional[int] = None
+    tokens_consumed: Optional[int] = None
+    cost_usd: Optional[float] = None
     notes: str = ""
 
 
 class BenchmarkEvaluationReport(BaseModel):
     timestamp: datetime = Field(default_factory=utc_now)
+    results: List[BenchmarkRunResult] = Field(default_factory=list)
     corpus_runs: List[BenchmarkRunResult] = Field(default_factory=list)
     ablation_summary: Dict[str, Any] = Field(default_factory=dict)
+

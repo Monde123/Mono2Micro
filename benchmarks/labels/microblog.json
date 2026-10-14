@@ -1,0 +1,32 @@
+{
+  "project": "microblog",
+  "language": "python",
+  "primary_framework": "flask",
+  "test_frameworks": ["unittest"],
+  "provenance": {
+    "source_repository": "https://github.com/miguelgrinberg/microblog",
+    "pinned_commit": "a975ef64864354867c88e0ed3a17ba7d17dca752",
+    "labeled_by": "human_expert",
+    "review_status": "FLAGGED_FOR_HUMAN_REVIEW"
+  },
+  "entities": [
+    {
+      "file": "app/models.py",
+      "class_name": "User",
+      "table_name": "user",
+      "fields": ["id", "username", "email", "password_hash", "about_me", "last_seen"]
+    },
+    {
+      "file": "app/models.py",
+      "class_name": "Post",
+      "table_name": "post",
+      "fields": ["id", "body", "timestamp", "user_id"]
+    }
+  ],
+  "routes": [
+    {
+      "file": "app/routes.py",
+      "paths": ["/", "/index", "/login", "/logout", "/register", "/user/<username>", "/edit_profile", "/follow/<username>", "/unfollow/<username>", "/explore", "/reset_password_request"]
+    }
+  ]
+}

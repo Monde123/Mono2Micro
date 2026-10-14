@@ -1,0 +1,38 @@
+{
+  "project": "acmeair-nodejs",
+  "language": "javascript",
+  "primary_framework": "express",
+  "test_frameworks": ["mocha"],
+  "provenance": {
+    "source_repository": "https://github.com/acmeair/acmeair-nodejs",
+    "pinned_commit": "11fa31ab5cd21ca184f760680e8aecc52ef4286a",
+    "labeled_by": "human_expert",
+    "review_status": "FLAGGED_FOR_HUMAN_REVIEW"
+  },
+  "entities": [
+    {
+      "file": "app.js",
+      "class_name": "Customer",
+      "table_name": "customer",
+      "fields": ["_id", "password", "status", "total_miles", "miles_ytd", "address", "phoneNumber", "email"]
+    },
+    {
+      "file": "app.js",
+      "class_name": "Flight",
+      "table_name": "flight",
+      "fields": ["_id", "flightSegmentId", "scheduledDepartureTime", "scheduledArrivalTime", "firstClassBaseCost", "economyClassBaseCost", "numFirstClassSeats", "numEconomyClassSeats", "airplaneTypeId"]
+    },
+    {
+      "file": "app.js",
+      "class_name": "Booking",
+      "table_name": "booking",
+      "fields": ["_id", "customerId", "flightId", "dateOfBooking"]
+    }
+  ],
+  "routes": [
+    {
+      "file": "app.js",
+      "paths": ["/rest/api/login", "/rest/api/flights/queryflights", "/rest/api/bookings/bookflights", "/rest/api/customer/byid"]
+    }
+  ]
+}

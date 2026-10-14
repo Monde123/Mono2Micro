@@ -1,0 +1,52 @@
+{
+  "project": "jpetstore-6",
+  "language": "java",
+  "primary_framework": "mybatis",
+  "test_frameworks": ["junit", "selenide"],
+  "provenance": {
+    "source_repository": "https://github.com/mybatis/jpetstore-6",
+    "pinned_commit": "7761616d5432667d0fa758166601f00e5e24c0ef",
+    "labeled_by": "human_expert",
+    "review_status": "FLAGGED_FOR_HUMAN_REVIEW"
+  },
+  "entities": [
+    {
+      "file": "src/main/java/org/mybatis/jpetstore/domain/Account.java",
+      "class_name": "Account",
+      "table_name": "account",
+      "fields": ["username", "email", "firstName", "lastName", "status", "address1", "city", "state", "zip", "country"]
+    },
+    {
+      "file": "src/main/java/org/mybatis/jpetstore/domain/Order.java",
+      "class_name": "Order",
+      "table_name": "orders",
+      "fields": ["orderId", "username", "orderDate", "shipAddress1", "billAddress1", "totalPrice", "status"]
+    },
+    {
+      "file": "src/main/java/org/mybatis/jpetstore/domain/Product.java",
+      "class_name": "Product",
+      "table_name": "product",
+      "fields": ["productId", "categoryId", "name", "description"]
+    },
+    {
+      "file": "src/main/java/org/mybatis/jpetstore/domain/Item.java",
+      "class_name": "Item",
+      "table_name": "item",
+      "fields": ["itemId", "productId", "listPrice", "unitCost", "supplierId", "status", "attribute1"]
+    }
+  ],
+  "routes": [
+    {
+      "file": "src/main/java/org/mybatis/jpetstore/web/actions/AccountActionBean.java",
+      "paths": ["/actions/Account.action"]
+    },
+    {
+      "file": "src/main/java/org/mybatis/jpetstore/web/actions/CatalogActionBean.java",
+      "paths": ["/actions/Catalog.action"]
+    },
+    {
+      "file": "src/main/java/org/mybatis/jpetstore/web/actions/OrderActionBean.java",
+      "paths": ["/actions/Order.action"]
+    }
+  ]
+}

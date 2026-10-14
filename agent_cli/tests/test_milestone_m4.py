@@ -127,7 +127,10 @@ def test_m4_fix_loop_passes_and_reports_metrics(tmp_path):
         step=step,
         initial_modifications=mods,
         test_command=test_cmd,
+        tokens_per_attempt=150,
+        cost_per_attempt=0.0005,
     )
+
 
     assert session.final_success is True
     assert len(session.attempts) == 1

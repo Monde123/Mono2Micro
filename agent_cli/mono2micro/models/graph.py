@@ -46,6 +46,7 @@ class DependencyEdge(BaseModel):
     weight: float = 1.0
     call_count: int = 1
     evidence_line: Optional[int] = None
+    untracked_dynamic: bool = False
 
 
 class DependencyGraph(BaseModel):
@@ -61,6 +62,11 @@ class DependencyGraph(BaseModel):
     @property
     def edge_count(self) -> int:
         return len(self.edges)
+
+    @property
+    def untracked_dynamic_count(self) -> int:
+        return sum(1 for e in self.edges if getattr(e, "untracked_dynamic", False))
+
 
 
 class PartitionCandidate(BaseModel):

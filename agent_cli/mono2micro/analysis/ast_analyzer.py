@@ -124,10 +124,46 @@ class ASTAnalyzer:
 
             elif isinstance(node, ast.Call):
                 func_name = ""
+                is_import_module = False
                 if isinstance(node.func, ast.Name):
                     func_name = node.func.id
                 elif isinstance(node.func, ast.Attribute):
                     func_name = node.func.attr
+                    if node.func.attr == "import_module":
+                        is_import_module = True
+
+                # Dynamic dependency detection (Python)
+                if func_name == "getattr" and len(node.args) >= 2:
+                    attr_arg = node.args[1]
+                    is_literal_str = isinstance(attr_arg, ast.Constant) and isinstance(attr_arg.value, str)
+                    if not is_literal_str:
+                        edges.append(DependencyEdge(
+                            source_id=mod_id,
+                            target_id="dynamic:getattr",
+                            edge_type=DependencyEdgeType.CALLS,
+                            weight=1.0,
+                            evidence_line=getattr(node, "lineno", None),
+                            untracked_dynamic=True,
+                        ))
+                elif is_import_module or func_name == "import_module":
+                    edges.append(DependencyEdge(
+                        source_id=mod_id,
+                        target_id="dynamic:importlib.import_module",
+                        edge_type=DependencyEdgeType.IMPORTS,
+                        weight=1.0,
+                        evidence_line=getattr(node, "lineno", None),
+                        untracked_dynamic=True,
+                    ))
+                elif func_name == "__import__":
+                    edges.append(DependencyEdge(
+                        source_id=mod_id,
+                        target_id="dynamic:__import__",
+                        edge_type=DependencyEdgeType.IMPORTS,
+                        weight=1.0,
+                        evidence_line=getattr(node, "lineno", None),
+                        untracked_dynamic=True,
+                    ))
+
                 if func_name and func_name not in ("len", "str", "int", "print", "range"):
                     edges.append(DependencyEdge(
                         source_id=mod_id,

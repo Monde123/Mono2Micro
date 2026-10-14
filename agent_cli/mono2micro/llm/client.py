@@ -15,7 +15,8 @@ import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple, Dict, Any
+
 
 
 
@@ -54,19 +55,30 @@ class LLMConfig:
     timeout: float = 120.0
 
 
+from mono2micro.llm.pricing import LLMUsage, calculate_cost
+
+
 class LLMClient(ABC):
     """Single-turn completion interface used by all agents."""
+
+    last_usage: Optional[LLMUsage] = None
 
     @abstractmethod
     def complete(self, system: str, user: str) -> str:
         """Return the model's text reply for a system + user prompt."""
+
+    def complete_with_usage(self, system: str, user: str) -> Tuple[str, LLMUsage]:
+        """Return text reply alongside measured token usage and cost."""
+        reply = self.complete(system, user)
+        usage = self.last_usage or LLMUsage()
+        return reply, usage
 
 
 class HTTPLLMClient(LLMClient):
     def __init__(self, config: LLMConfig, api_key: Optional[str], max_retries: int = 2):
         if config.provider not in SUPPORTED_PROVIDERS:
             raise LLMError(
-                f"Fournisseur inconnu '{config.provider}'. Choix : {', '.join(SUPPORTED_PROVIDERS)}."
+                f"Unknown provider '{config.provider}'. Choices: {', '.join(SUPPORTED_PROVIDERS)}."
             )
         is_local_compatible = (
             config.provider == "openai"
@@ -74,12 +86,13 @@ class HTTPLLMClient(LLMClient):
         )
         if not api_key and not is_local_compatible:
             raise LLMError(
-                f"Aucune clé API pour '{config.provider}'. Définissez la variable "
-                f"d'environnement {API_KEY_ENV[config.provider]}."
+                f"No API key provided for '{config.provider}'. Set the environment variable "
+                f"{API_KEY_ENV[config.provider]}."
             )
         self.config = config
         self._api_key = api_key or ""
         self._max_retries = max_retries
+        self.last_usage: Optional[LLMUsage] = None
 
     def __repr__(self) -> str:  # never expose the key
         return f"HTTPLLMClient(provider={self.config.provider!r}, model={self.config.model!r}, key=***)"
@@ -143,7 +156,28 @@ class HTTPLLMClient(LLMClient):
             parts = data["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
         except (KeyError, IndexError, TypeError) as exc:
-            raise LLMError(f"Réponse inattendue du fournisseur '{self.config.provider}'.") from exc
+            raise LLMError(f"Unexpected response format from provider '{self.config.provider}'.") from exc
+
+    def _parse_usage(self, data: dict) -> LLMUsage:
+        c = self.config
+        in_tok = 0
+        out_tok = 0
+        if c.provider == "openai":
+            usage = data.get("usage", {})
+            in_tok = usage.get("prompt_tokens", 0)
+            out_tok = usage.get("completion_tokens", 0)
+        elif c.provider == "anthropic":
+            usage = data.get("usage", {})
+            in_tok = usage.get("input_tokens", 0)
+            out_tok = usage.get("output_tokens", 0)
+        else:  # gemini
+            usage = data.get("usageMetadata", {})
+            in_tok = usage.get("promptTokenCount", 0)
+            out_tok = usage.get("candidatesTokenCount", 0)
+
+        tot_tok = in_tok + out_tok
+        cost = calculate_cost(c.model, in_tok, out_tok)
+        return LLMUsage(input_tokens=in_tok, output_tokens=out_tok, total_tokens=tot_tok, cost_usd=cost)
 
     # ---- transport ------------------------------------------------------------
 
@@ -153,13 +187,17 @@ class HTTPLLMClient(LLMClient):
             text = text.replace(self._api_key, "[REDACTED_KEY]")
         return SecretMasker.mask_text(text)
 
-    def complete(self, system: str, user: str) -> str:
-        last_error = "erreur inconnue"
+    def complete_with_usage(self, system: str, user: str) -> Tuple[str, LLMUsage]:
+        last_error = "unknown error"
         for attempt in range(self._max_retries + 1):
             request = self._build_request(system, user)
             try:
                 with urllib.request.urlopen(request, timeout=self.config.timeout) as resp:
-                    return self._parse(json.loads(resp.read().decode("utf-8")))
+                    raw_data = json.loads(resp.read().decode("utf-8"))
+                    text = self._parse(raw_data)
+                    usage = self._parse_usage(raw_data)
+                    self.last_usage = usage
+                    return text, usage
             except urllib.error.HTTPError as exc:
                 detail = ""
                 try:
@@ -170,13 +208,17 @@ class HTTPLLMClient(LLMClient):
                 if exc.code not in RETRYABLE_STATUS or attempt == self._max_retries:
                     break
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
-                last_error = self._scrub(f"Erreur réseau : {exc}")
+                last_error = self._scrub(f"Network error: {exc}")
                 if attempt == self._max_retries:
                     break
             except json.JSONDecodeError as exc:
-                raise LLMError("Réponse du fournisseur non JSON.") from exc
+                raise LLMError("Provider response was not valid JSON.") from exc
             time.sleep(min(2 ** attempt, 8))
-        raise LLMError(f"Appel LLM échoué ({self.config.provider}) : {last_error}")
+        raise LLMError(f"LLM call failed ({self.config.provider}): {last_error}")
+
+    def complete(self, system: str, user: str) -> str:
+        text, _ = self.complete_with_usage(system, user)
+        return text
 
 
 # ---- factories ---------------------------------------------------------------
@@ -199,11 +241,11 @@ def build_client(
 ) -> LLMClient:
     provider = (provider or "").strip().lower()
     if provider not in SUPPORTED_PROVIDERS:
-        raise LLMError(f"Fournisseur inconnu '{provider}'. Choix : {', '.join(SUPPORTED_PROVIDERS)}.")
+        raise LLMError(f"Unknown provider '{provider}'. Choices: {', '.join(SUPPORTED_PROVIDERS)}.")
     chosen_model = model or DEFAULT_MODELS.get(provider)
     if not chosen_model:
         raise LLMError(
-            f"Aucun modèle défini pour '{provider}'. Utilisez : agent config --llm-model <nom-du-modèle>."
+            f"No model defined for '{provider}'. Use: agent config --llm-model <model-name>."
         )
     config = LLMConfig(
         provider=provider,
@@ -234,7 +276,7 @@ def build_client_from_specs(
         if prompt_fn is None:
             import getpass
             prompt_fn = getpass.getpass
-        api_key = (prompt_fn(f"Clé API {provider} (saisie masquée, non enregistrée) : ") or "").strip() or None
+        api_key = (prompt_fn(f"API key for {provider} (hidden input, never saved to disk): ") or "").strip() or None
 
     return build_client(
         provider=provider,
@@ -242,3 +284,4 @@ def build_client_from_specs(
         base_url=getattr(specs, "llm_base_url", None),
         api_key=api_key,
     )
+

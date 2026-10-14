@@ -1,5 +1,5 @@
 # Mono2Micro Makefile
-.PHONY: test bench lint install
+.PHONY: test bench lint install verify
 
 test:
 	PYTHONPATH=agent_cli pytest agent_cli/tests -v
@@ -17,3 +17,7 @@ lint:
 install:
 	npm install
 	pip install -e agent_cli
+
+verify:
+	python3 scripts/verify_work.py
+

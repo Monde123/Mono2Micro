@@ -1,0 +1,13 @@
+{
+  "benchmark_name": "jpetstore-6",
+  "baseline_mode": "HEURISTIC_ONLY",
+  "tool_commit": "22a4a7262410fe9bc5a7d6b62672dad6a53b33b2",
+  "wall_clock_seconds": 0.059,
+  "files_analyzed": 149,
+  "tables_analyzed": 0,
+  "domains_proposed": 0,
+  "modularity_q": 0.0,
+  "inter_domain_coupling_ratio": 0.0,
+  "shared_tables_count": 0,
+  "partitions": []
+}

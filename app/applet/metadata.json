@@ -1,8 +1,0 @@
-{
-  "name": "Mono2Micro",
-  "description": "Local CLI engineering agent to inspect, analyze, and modularize software monoliths based on Hammad, Sahmoud & Abu Ghazala (2023) research principles.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}

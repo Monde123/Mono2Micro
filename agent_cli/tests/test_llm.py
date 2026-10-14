@@ -88,8 +88,9 @@ def test_missing_key_for_hosted_provider_raises():
 
 
 def test_model_required_when_no_default():
-    with pytest.raises(LLMError, match="modèle"):
+    with pytest.raises(LLMError, match="model"):
         build_client("openai", api_key=KEY)
+
 
 
 def test_unknown_provider_rejected():
@@ -158,3 +159,13 @@ def test_extract_json_variants(raw):
 def test_extract_json_rejects_garbage():
     with pytest.raises(LLMError):
         extract_json("pas de json ici")
+
+
+def test_usage_and_pricing_calculation():
+    from mono2micro.llm.pricing import calculate_cost, LLMUsage, PRICING_TABLE_DATE
+    assert PRICING_TABLE_DATE == "2024-10-01"
+    # gpt-4o: 2.50 input, 10.00 output per 1M
+    cost = calculate_cost("gpt-4o", 1000, 2000)
+    expected = (1000 / 1e6) * 2.50 + (2000 / 1e6) * 10.00
+    assert abs(cost - expected) < 1e-6
+
