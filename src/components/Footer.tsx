@@ -34,9 +34,17 @@ export const Footer: React.FC = () => {
 
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-6 pt-5 border-t border-zinc-800/40 text-[11px] text-zinc-600 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <span>© 2026 Mono_Micro · {t.footer.tagline}</span>
-        <span>{t.footer.disclaimer}</span>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-6 pt-5 border-t border-zinc-800/40 text-[11px] text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
+          <span>© 2026 Mono_Micro · {t.footer.tagline}</span>
+          <span className="hidden sm:inline text-zinc-700">|</span>
+          <span className="inline-flex items-center gap-1 text-amber-400/90 font-medium">
+            📜 {t.footer.license}
+          </span>
+        </div>
+        <div className="text-zinc-500 text-center sm:text-right">
+          <span>{t.footer.benchmarks}</span>
+        </div>
       </div>
     </footer>
   );

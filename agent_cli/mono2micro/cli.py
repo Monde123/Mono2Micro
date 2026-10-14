@@ -25,12 +25,13 @@ from mono2micro.ui.rich_formatters import ConsoleFormatter
 from mono2micro.models.objectives import MigrationGoalType
 from mono2micro.models.options import ArchitectureOptionType
 from mono2micro.core.security import SecretMasker
+from mono2micro.models.audit import AuditActionType
 from mono2micro.llm import LLMError, SUPPORTED_PROVIDERS, build_client_from_specs
 from mono2micro.agents.implementer import ProposalError, StepProposal
 
 app = typer.Typer(
     name="agent",
-    help="Agent IA local en ligne de commande pour la modernisation de monolithes logiciels (Hammad et al., 2023).",
+    help="Local CLI agent for empirical monolith modernization and modularization (Hammad et al., 2023).",
     no_args_is_help=True
 )
 
@@ -56,15 +57,15 @@ def resolve_llm(target_path: str, ask_key: bool = False, required: bool = False)
         client = build_client_from_specs(specs, ask_key=ask_key)
     except LLMError as exc:
         if required:
-            console.print(f"[bold red]❌ LLM indisponible :[/] {escape(str(exc))}")
+            console.print(f"[bold red]❌ LLM unavailable:[/] {escape(str(exc))}")
             raise typer.Exit(code=1)
-        console.print(f"[yellow]⚠️ LLM ignoré ({escape(str(exc))}). Analyse heuristique locale uniquement.[/]\n")
+        console.print(f"[yellow]⚠️ LLM skipped ({escape(str(exc))}). Using local heuristics only.[/]\n")
         return None
     if client is not None:
         cfg = getattr(client, "config", None)
         label = f"{cfg.provider}/{cfg.model}" if cfg else specs.llm_provider
-        console.print(f"[bold cyan]🤖 LLM actif :[/] [white]{label}[/] [dim](clé lue dans l'environnement, jamais enregistrée)[/]")
-        console.print("[dim]Métadonnées envoyées : chemins, noms de modèles, frameworks. Aucun contenu de fichier pour 'plan'.[/]\n")
+        console.print(f"[bold cyan]🤖 Active LLM:[/] [white]{label}[/] [dim](key read from environment, never persisted)[/]")
+        console.print("[dim]Metadata sent: file paths, model names, frameworks. No source file content for 'plan'.[/]\n")
     return client
 
 
@@ -82,13 +83,13 @@ def render_proposal_diff(proposal: StepProposal) -> str:
 
 @app.command(name="analyze")
 def cmd_analyze(
-    path: str = typer.Option(".", "--path", "-p", help="Chemin du répertoire du projet à analyser."),
-    offline: bool = typer.Option(True, "--offline", help="Mode d'analyse statique locale sans appel externe."),
+    path: str = typer.Option(".", "--path", "-p", help="Target project directory path to analyze."),
+    offline: bool = typer.Option(True, "--offline", help="Static local analysis mode without external calls."),
 ):
-    """Analyse en lecture seule du dépôt : inventaire des composants, faits vérifiés et hypothèses."""
+    """Read-only repository discovery: components, verified facts, and model hypotheses."""
     ConsoleFormatter.print_banner()
     resolved_path = str(Path(path).resolve())
-    console.print(f"[bold cyan]🔍 Lancement de la découverte passive sur :[/] [white]{resolved_path}[/]\n")
+    console.print(f"[bold cyan]🔍 Launching passive discovery on:[/] [white]{resolved_path}[/]\n")
 
     orchestrator = get_orchestrator(resolved_path)
     report = orchestrator.step_1_discover()
@@ -99,8 +100,56 @@ def cmd_analyze(
     # Persist state
     store = ProjectStateStore(resolved_path)
     store.save_json("discovery.json", report.model_dump())
-    console.print("[dim green]✓ Découverte sauvegardée dans .mono2micro/discovery.json[/]\n")
-    console.print("[bold yellow]Prochaine commande recommandée :[/] [bold white]agent plan[/]")
+    console.print("[dim green]✓ Discovery saved in .mono2micro/discovery.json[/]\n")
+    console.print("[bold yellow]Recommended next command:[/] [bold white]agent plan[/]")
+
+
+@app.command(name="graph")
+def cmd_graph(
+    path: str = typer.Option(".", "--path", "-p", help="Project directory path."),
+    export: Optional[str] = typer.Option(None, "--export", "-o", help="Custom path to export graph JSON."),
+):
+    """Build dependency graph (AST & data layer) and calculate Louvain modularity partitions offline."""
+    ConsoleFormatter.print_banner()
+    resolved_path = str(Path(path).resolve())
+    console.print(f"[bold cyan]🔍 Extracting dependency graph & clustering on:[/] [white]{resolved_path}[/]\n")
+    orchestrator = get_orchestrator(resolved_path)
+    graph, eval_result = orchestrator.build_dependency_graph()
+
+    from rich.table import Table
+    table = Table(title="[bold cyan]Offline Structural Partitions & Modularity (Louvain)[/]", box=None)
+    table.add_column("Proposed Domain", style="bold white")
+    table.add_column("Files Count", style="cyan")
+    table.add_column("Tables Owned", style="green")
+    table.add_column("Tables Ref", style="yellow")
+    table.add_column("Cohesion", style="magenta")
+
+    for part in eval_result.partitions:
+        table.add_row(
+            part.domain_name,
+            str(len(part.files)),
+            ", ".join(part.tables_owned) or "-",
+            ", ".join(part.tables_referenced) or "-",
+            f"{part.cohesion_score:.2f}",
+        )
+
+    console.print(table)
+    console.print(f"\n[bold white]Graph Summary:[/] {graph.node_count} nodes, {graph.edge_count} edges")
+    console.print(f"[bold green]Modularity Q:[/] [white]{eval_result.modularity_q:.4f}[/]")
+    console.print(f"[bold yellow]Inter-domain Coupling Ratio:[/] [white]{eval_result.inter_domain_coupling_ratio:.4f}[/]")
+    console.print(f"[bold red]Shared Tables Count:[/] [white]{eval_result.shared_tables_count}[/]")
+    if eval_result.shared_tables_detail:
+        for tbl, doms in eval_result.shared_tables_detail.items():
+            console.print(f"  • [red]{tbl}[/] shared between: {', '.join(doms)}")
+
+    if export:
+        from mono2micro.analysis.graph_engine import GraphEngine
+        engine = GraphEngine(resolved_path)
+        engine.export_graph_json(graph, export)
+        console.print(f"\n[dim green]✓ Custom graph export written to {export}[/]\n")
+    else:
+        console.print("\n[dim green]✓ Graph exported to .mono2micro/dependency_graph.json[/]")
+        console.print("[dim green]✓ Partitions exported to .mono2micro/partitions.json[/]\n")
 
 
 @app.command(name="plan")
@@ -229,6 +278,14 @@ def cmd_apply(
         console.print(f"[red]Étape {step} introuvable.[/]")
         raise typer.Exit(code=1)
 
+    # M1 Integrity check: if approval was previously recorded, ensure current plan is identical
+    existing_approval = orchestrator.audit_logger.get_latest_approval(step)
+    if existing_approval:
+        is_valid, tamper_msg = orchestrator.verify_plan_before_apply(step)
+        if not is_valid:
+            console.print(f"[bold red]❌ {tamper_msg}[/]")
+            raise typer.Exit(code=1)
+
     # --- Optional: model-proposed code, reviewed before anything is written
     proposal: Optional[StepProposal] = None
     if llm is not None:
@@ -254,6 +311,31 @@ def cmd_apply(
         if proposal.notes:
             console.print(f"[dim]Notes du modèle : {escape(proposal.notes)}[/]")
         console.print()
+
+        # M5: Adversarial Diff Review
+        from mono2micro.review.diff_reviewer import AdversarialDiffReviewer
+        owned_tables = target_step.data_ownership.source_tables + target_step.data_ownership.target_tables
+        reviewer = AdversarialDiffReviewer()
+        violations = reviewer.review_diff(
+            diff_text=diff_text,
+            files_allowed=sorted(proposal.files),
+            owned_tables=owned_tables,
+        )
+        if violations:
+            console.print("[bold red]⛔ REJET ADVERSARIAL DU DIFF :[/]")
+            for v in violations:
+                console.print(f"  • [red]{v.rule.value}[/] ({v.file_path}:{v.line_number or '-'}): {v.description}")
+                if v.code_excerpt:
+                    console.print(f"    [dim]{escape(v.code_excerpt)}[/]")
+            orchestrator.audit_logger.log_action(
+                action=AuditActionType.DEVIL_ADVOCATE_BLOCKED,
+                plan_id=plan.plan_id,
+                plan_hash=plan.plan_hash or plan.compute_canonical_hash(),
+                step_number=step,
+                details={"violations": [v.description for v in violations]},
+            )
+            console.print("[bold red]❌ Application annulée en raison d'objections adversariales bloquantes.[/]\n")
+            raise typer.Exit(code=1)
 
     files_allowed = sorted(proposal.files) if proposal else None
     shown_scope = files_allowed if proposal else target_step.files_in_scope
@@ -297,14 +379,35 @@ def cmd_apply(
             raise typer.Exit(code=1)
         ok, write_msg, written = implementer.apply_file_changes(target_step, proposal.files)
         if not ok:
+            orchestrator.audit_logger.log_action(
+                action=AuditActionType.STEP_APPLY_FAILED,
+                plan_id=plan.plan_id,
+                plan_hash=plan.plan_hash or plan.compute_canonical_hash(),
+                step_number=step,
+                details={"error": write_msg},
+            )
             console.print(f"[bold red]❌ {escape(write_msg)}[/]")
             raise typer.Exit(code=1)
+        orchestrator.audit_logger.log_action(
+            action=AuditActionType.STEP_APPLY_SUCCESS,
+            plan_id=plan.plan_id,
+            plan_hash=plan.plan_hash or plan.compute_canonical_hash(),
+            step_number=step,
+            details={"written_files": written},
+        )
         console.print(f"[bold green]✓ {len(written)} fichier(s) écrit(s) sur la branche isolée (non commités) :[/]")
         for w in written:
             console.print(f"  • {w}")
         console.print("\n[bold yellow]À faire :[/] relire avec [white]git diff[/], puis [white]agent verify --step "
                       f"{step}[/] ; annuler avec [white]git checkout -- . && git checkout -[/].")
     else:
+        orchestrator.audit_logger.log_action(
+            action=AuditActionType.STEP_APPLY_SUCCESS,
+            plan_id=plan.plan_id,
+            plan_hash=plan.plan_hash or plan.compute_canonical_hash(),
+            step_number=step,
+            details={"mode": "branch_initialized"},
+        )
         console.print(f"[bold green]✓ Étape {step} initialisée sur branche dédiée. Fichiers protégés par les frontières du plan.[/]\n")
         console.print("[bold yellow]Prochaine commande requise :[/] [bold white]agent verify --step 1[/]")
 
@@ -485,6 +588,198 @@ def cmd_config(
     console.print(table)
     console.print()
     console.print("[dim]Fichier éditable directement : .mono2micro/user_specifications.json[/]\n")
+
+
+@app.command(name="approve")
+def cmd_approve(
+    path: str = typer.Option(".", "--path", "-p", help="Project directory path."),
+    step: int = typer.Option(1, "--step", "-s", help="Step number to approve."),
+    confirm: Optional[str] = typer.Option(None, "--confirm", "-c", help="Explicit confirmation string ('YES', 'OUI', or token)."),
+):
+    """Sign and persist human approval for a specific migration step."""
+    ConsoleFormatter.print_banner()
+    resolved_path = str(Path(path).resolve())
+    orchestrator = get_orchestrator(resolved_path)
+    orchestrator.step_1_discover()
+    orchestrator.step_3_analyze_domains()
+    orchestrator.step_4_compare_options()
+    plan = orchestrator.step_5_plan_migration()
+
+    review = orchestrator.step_6_adversarial_review(step_number=step)
+    if review.step_is_blocked:
+        console.print(f"[bold red]Approval Refused: Step {step} is blocked by the devil's advocate.[/]")
+        for r in review.blocking_reasons:
+            console.print(f"  • [red]{r}[/]")
+        raise typer.Exit(code=1)
+
+    target_step = next((s for s in plan.steps if s.step_number == step), None)
+    if not target_step:
+        console.print(f"[red]Step {step} not found in plan.[/]")
+        raise typer.Exit(code=1)
+
+    confirmation = confirm
+    if not confirmation:
+        confirmation = Prompt.ask(f"[bold yellow]Approve step {step} ({target_step.title})? (Type 'YES' to confirm)[/]")
+
+    try:
+        token = orchestrator.step_7_request_human_approval(step, confirmation)
+        console.print(f"[bold green]✓ Step {step} approved and signed (Plan Hash: {plan.plan_hash[:16]}..., Token: {token}).[/]")
+        console.print("[dim green]✓ Approval recorded in .mono2micro/approvals.jsonl and .mono2micro/audit.jsonl[/]\n")
+    except Exception as e:
+        console.print(f"[bold red]❌ Approval failed:[/] {escape(str(e))}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="audit")
+def cmd_audit(
+    path: str = typer.Option(".", "--path", "-p", help="Project directory path."),
+    limit: int = typer.Option(50, "--limit", "-n", help="Max records to display."),
+):
+    """Inspect persistent JSONL audit trail."""
+    ConsoleFormatter.print_banner()
+    resolved_path = str(Path(path).resolve())
+    orchestrator = get_orchestrator(resolved_path)
+    records = orchestrator.audit_logger.read_all_audit_records()
+    if not records:
+        console.print("[dim yellow]No audit records found in .mono2micro/audit.jsonl[/]\n")
+        return
+
+    from rich.table import Table
+    table = Table(title=f"[bold cyan]Audit Log Trail ({len(records)} records)[/]", box=None)
+    table.add_column("Timestamp", style="dim")
+    table.add_column("Action", style="bold white")
+    table.add_column("Actor", style="cyan")
+    table.add_column("Step", style="yellow")
+    table.add_column("Plan Hash", style="magenta")
+
+    for r in records[-limit:]:
+        table.add_row(
+            r.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            r.action.value,
+            r.actor,
+            str(r.step_number or "-"),
+            f"{r.plan_hash[:12]}..." if r.plan_hash else "-",
+        )
+    console.print(table)
+    console.print()
+
+
+@app.command(name="bench")
+def cmd_bench(
+    results_dir: str = typer.Option("benchmarks/results", "--output", "-o", help="Directory where benchmark results will be saved."),
+):
+    """Execute the empirical benchmark suite across pinned corpus items with ablations."""
+    ConsoleFormatter.print_banner()
+    from benchmarks.runner import BenchmarkRunner
+    console.print("[bold cyan]🚀 Running Mono2Micro Benchmark Suite across 6 corpus projects...[/]\n")
+    runner_inst = BenchmarkRunner(results_dir=results_dir)
+    report = runner_inst.run_suite()
+
+    from rich.table import Table
+    table = Table(title="[bold cyan]Empirical Benchmark & Ablation Results[/]", box=None)
+    table.add_column("Benchmark", style="bold white")
+    table.add_column("Baseline", style="cyan")
+    table.add_column("GT?", style="yellow")
+    table.add_column("Precision", style="green")
+    table.add_column("Recall", style="green")
+    table.add_column("Modularity Q", style="magenta")
+    table.add_column("Coupling", style="yellow")
+    table.add_column("Shared Tbls", style="red")
+    table.add_column("Tokens", style="dim")
+    table.add_column("Cost ($)", style="dim")
+
+    for r in report.corpus_runs:
+        table.add_row(
+            r.benchmark_name,
+            r.baseline_mode.value,
+            "Yes" if r.precision is not None else "Surrogate",
+            f"{r.precision:.2f}" if r.precision is not None else "N/A",
+            f"{r.recall:.2f}" if r.recall is not None else "N/A",
+            f"{r.modularity_q:.2f}",
+            f"{r.inter_domain_coupling_ratio:.2f}",
+            str(r.shared_tables_count),
+            str(r.tokens_consumed),
+            f"${r.cost_usd:.4f}",
+        )
+
+    console.print(table)
+    console.print(f"\n[bold green]✓ Benchmark completed successfully ({len(report.corpus_runs)} evaluation runs).[/]")
+    console.print(f"[dim green]✓ Results saved in {results_dir}/ (JSON and Markdown table).[/]\n")
+
+
+@app.command(name="doctor")
+def cmd_doctor(
+    path: str = typer.Option(".", "--path", "-p", help="Target project directory path."),
+):
+    """Diagnose local setup, offline readiness, capability matrix, and scan for prompt injection."""
+    ConsoleFormatter.print_banner()
+    resolved_path = str(Path(path).resolve())
+    orchestrator = get_orchestrator(resolved_path)
+
+    import sys
+    py_ver = sys.version.split()[0]
+    is_git = os.path.exists(os.path.join(resolved_path, ".git"))
+    has_key = bool(
+        os.getenv("OPENAI_API_KEY")
+        or os.getenv("ANTHROPIC_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+    )
+    provider = orchestrator.user_specs.llm_provider
+
+    console.print(f"[bold cyan]Mono2Micro System & Capability Diagnostics[/]\n")
+    console.print(f"• Python version : [white]{py_ver}[/] (>= 3.10 required)")
+    console.print(f"• Git repository : [{'green' if is_git else 'yellow'}]{'Yes' if is_git else 'No'}[/]")
+    console.print(f"• Offline mode   : [bold green]Ready (100% offline analysis & AST graph)[/]")
+    console.print(f"• LLM Provider   : [white]{provider or 'None (Offline Heuristics)'}[/]")
+    console.print(f"• Active API Key : [{'green' if has_key else 'dim'}]{'Present in environment' if has_key else 'None (Safe Offline)'}[/]\n")
+
+    from rich.table import Table
+    table = Table(title="[bold cyan]Command Capability Matrix[/]", box=None)
+    table.add_column("Command", style="bold white")
+    table.add_column("Offline Capability (Default)", style="green")
+    table.add_column("LLM-Augmented Mode (Optional)", style="cyan")
+    table.add_column("API Key?", style="yellow")
+
+    table.add_row("analyze", "Full AST inventory, components, facts", "Enriched semantic commentary", "No")
+    table.add_row("graph", "AST dependency graph, Louvain modularity Q", "Semantic edge weighting", "No")
+    table.add_row("plan", "Heuristic Bounded Contexts, 4 options matrix", "Domain naming refinement", "No")
+    table.add_row("test-plan", "Devil's advocate static coupling check", "Adversarial edge-case generator", "No")
+    table.add_row("apply", "Isolated git branch creation & rollback", "Code generation with diff review", "Required for codegen")
+    table.add_row("verify", "Strict Quality Gate, boundary check", "Root-cause diagnostics on test failure", "No")
+    table.add_row("bench", "Full 6-corpus ablation suite", "Hybrid agent precision evaluation", "Optional")
+
+    console.print(table)
+    console.print()
+
+    # Scan for prompt injection in source files
+    injection_warnings = []
+    suspicious_patterns = [
+        r'ignore\s+all\s+previous\s+instructions',
+        r'you\s+are\s+now\s+in\s+developer\s+mode',
+        r'system\s+prompt\s+override',
+    ]
+    for root, _, files in os.walk(resolved_path):
+        if any(p in root.split(os.sep) for p in (".git", "node_modules", ".mono2micro")):
+            continue
+        for f in files:
+            if f.endswith((".py", ".js", ".ts", ".java", ".md")):
+                fpath = os.path.join(root, f)
+                try:
+                    with open(fpath, "r", encoding="utf-8", errors="ignore") as fl:
+                        txt = fl.read()
+                    for pat in suspicious_patterns:
+                        if re.search(pat, txt, re.IGNORECASE):
+                            injection_warnings.append(f"{os.path.relpath(fpath, resolved_path)}: matched '{pat}'")
+                except Exception:
+                    pass
+
+    if injection_warnings:
+        console.print("[bold red]⚠️ Potential Prompt Injection Warnings in Codebase Comments:[/]")
+        for w in injection_warnings:
+            console.print(f"  • [red]{w}[/]")
+    else:
+        console.print("[bold green]✓ Prompt Injection Check:[/] No suspicious instructions detected in codebase comments.")
+    console.print()
 
 
 def main():

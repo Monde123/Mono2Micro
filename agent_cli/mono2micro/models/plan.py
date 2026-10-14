@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 from enum import Enum
 from datetime import datetime
+from mono2micro.models.time_utils import utc_now
 
 
 class RoutingStrategyType(str, Enum):
@@ -78,10 +79,41 @@ class StranglerStep(BaseModel):
 class StranglerPlan(BaseModel):
     """Overall phased migration roadmap."""
     plan_id: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     target_architecture_summary: str
     steps: List[StranglerStep]
-    estimated_total_steps: int
+    estimated_total_steps: int = 0
     prerequisites_met: bool = False
     prerequisite_blockers: List[str] = Field(default_factory=list)
     principles_applied: List[str] = Field(default_factory=list)
+    plan_hash: Optional[str] = None
+
+    def compute_canonical_hash(self) -> str:
+        """Compute deterministic SHA-256 hash of immutable plan architecture contents."""
+        import hashlib
+        import json
+
+        canonical_steps = []
+        for step in sorted(self.steps, key=lambda s: s.step_number):
+            canonical_steps.append({
+                "step_number": step.step_number,
+                "title": step.title,
+                "target_bounded_context": step.target_bounded_context,
+                "files_in_scope": sorted(step.files_in_scope),
+                "routing_strategy": str(step.routing_strategy),
+                "routing_details": step.routing_details,
+                "data_strategy": str(step.data_ownership.strategy),
+                "source_tables": sorted(step.data_ownership.source_tables),
+                "target_tables": sorted(step.data_ownership.target_tables),
+                "git_revert_command": step.rollback.git_revert_command,
+            })
+
+        payload = {
+            "plan_id": self.plan_id,
+            "target_architecture_summary": self.target_architecture_summary,
+            "steps": canonical_steps,
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        computed = hashlib.sha256(encoded).hexdigest()
+        self.plan_hash = computed
+        return computed

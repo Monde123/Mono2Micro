@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 from enum import Enum
 from datetime import datetime
+from mono2micro.models.time_utils import utc_now
 
 
 class ComponentType(str, Enum):
@@ -40,7 +41,7 @@ class VerifiedFact(BaseModel):
     line_number: Optional[int] = None
     observation: str
     code_snippet: Optional[str] = None
-    verified_at: datetime = Field(default_factory=datetime.utcnow)
+    verified_at: datetime = Field(default_factory=utc_now)
 
 
 class AssumptionCertainty(str, Enum):
@@ -93,7 +94,7 @@ class DatabaseCouplingInfo(BaseModel):
 class DiscoveryReport(BaseModel):
     """Complete read-only repository discovery report."""
     target_directory: str
-    scanned_at: datetime = Field(default_factory=datetime.utcnow)
+    scanned_at: datetime = Field(default_factory=utc_now)
     languages_detected: List[str] = Field(default_factory=list)
     frameworks_detected: List[str] = Field(default_factory=list)
     total_files_scanned: int = 0

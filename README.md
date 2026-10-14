@@ -1,240 +1,185 @@
-# Mono_Micro — Agent IA Local de Modernisation Architecturale
+# Mono2Micro
 
-> **CLI local pour évaluer, modulariser ou extraire des applications monolithiques par étapes progressives, testables et réversibles.**  
-> Fondé sur les principes de recherche de :  
-> **"Convert Monolithic Application to Microservice Application"**  
-> *Hatem Hammad, Thaer Sahmoud et Abed Al Rahman Abu Ghazala (2023)* — [alphaXiv:2306.08851](https://www.alphaxiv.org/abs/2306.08851)
+> **Empirical, Phased Monolith-to-Microservice & Modularization CLI Agent**  
+> Operationalizing the research principles of **Hatem Hammad, Thaer Sahmoud, and Abed Al Rahman Abu Ghazala (2023)** ([alphaXiv:2306.08851](https://www.alphaxiv.org/abs/2306.08851)).
 
----
-
-## 🎯 Philosophie & Démarche
-
-Mono_Micro ne part **jamais** du principe que « monolithe = problème à découper ». L'agent :
-- **Clarifie l'objectif** avant de recommander une architecture (Principe 1).
-- Évalue en priorité le **Monolithe Modulaire** pour éviter la « taxe distribuée » (latence réseau, indisponibilités partielles, sagas complexes).
-- Si une extraction est justifiée, applique le patron **Strangler Fig** avec routage réversible (Principe 5) et composant le moins couplé en premier (Principe 4).
-- Traite rigoureusement la **propriété des données** (pas de scission magique aveugle) (Principe 6).
-- Fait intervenir un **avocat du diable bloquant** et un **Quality Gate binaire sans moyenne** (Principe 7).
+[![CI](https://github.com/mono2micro/mono2micro/actions/workflows/ci.yml/badge.svg)](https://github.com/mono2micro/mono2micro/actions)
+[![License: Non-Commercial](https://img.shields.io/badge/License-Non--Commercial-amber.svg)](./LICENSE)
+[![Python: >=3.10](https://img.shields.io/badge/Python->=3.10-blue.svg)](https://python.org)
+[![Offline: 100%](https://img.shields.io/badge/Offline-100%25%20Functional-green.svg)](#offline-first-architecture)
 
 ---
 
-## 🚀 Installation & Exécution (Node.js & Python)
+## 💡 Overview
 
-### Option A : Écosystème Node.js (Recommandé pour projets JavaScript / TypeScript)
+Migrating a monolithic codebase to microservices is notoriously hazardous: distributed transactions fail, network latency escalates, and teams suffer from the "distributed monolith" anti-pattern.
 
+**Mono2Micro** is a production-grade, local software engineering CLI agent that replaces speculative splitting with **empirical, static analysis**:
+
+1. **Modular Monolith Evaluated First**: In accordance with Principle 1 of Hammad et al. (2023), if the team has $\le 2$ developers or the objective is codebase modularity/cost, the agent recommends internal encapsulation (Modular Monolith) rather than paying the distributed systems tax.
+2. **100% Offline by Default**: AST dependency graph extraction, SQL and MyBatis parser, and Louvain modularity clustering run completely offline on your local machine with zero network calls and zero telemetry.
+3. **Cryptographically Sealed Migration Plans**: Every migration plan is signed with a deterministic canonical SHA-256 hash. If files in scope or routing rules change after human approval, execution is strictly blocked.
+4. **Adversarial Devil's Advocate**: An independent sub-agent examines diffs to block direct foreign table queries, cross-boundary imports, or cascading synchronous RPC calls before any code is written.
+5. **Strict Binary Quality Gate**: No score averaging or compensation of critical failures. If a mandatory test fails or is skipped, release is denied.
+
+---
+
+## 🚀 Quickstart
+
+### Prerequisites
+- Python 3.10 or higher
+- Git 2.30+
+
+### Installation
 ```bash
-# Exécution directe via npx (zéro installation préalable)
-npx mono2micro analyze
-npx mono2micro plan --goal CODEBASE_MODULARITY
-npx mono2micro config
+# Clone the repository
+git clone https://github.com/mono2micro/mono2micro.git
+cd mono2micro
 
-# Ou installation globale npm
-npm install -g mono2micro
-mono2micro analyze
+# Install the Python CLI in editable mode
+pip install -e agent_cli
+
+# Verify local installation
+mono2micro doctor
 ```
 
-### Option B : Écosystème Python (pip / pipx)
+Alternatively, you can run commands directly using `python -m mono2micro.cli`.
 
+---
+
+## 🛠️ CLI Workflow & Commands
+
+```
+                   ┌──────────────┐
+                   │ agent doctor │  Check local readiness & capabilities
+                   └──────┬───────┘
+                          ▼
+                  ┌───────────────┐
+                  │ agent analyze │  Read-only AST inventory & facts
+                  └──────┬────────┘
+                          ▼
+                   ┌─────────────┐
+                   │ agent graph │  AST dependency graph & Louvain modularity Q
+                   └──────┬──────┘
+                          ▼
+                   ┌────────────┐
+                   │ agent plan │  Clarify goals & generate signed Strangler plan
+                   └──────┬─────┘
+                          ▼
+                ┌─────────────────┐
+                │ agent test-plan │  Devil's advocate challenge & coupling check
+                └─────────┬───────┘
+                          ▼
+                 ┌───────────────┐
+                 │ agent approve │  Persist human approval for step N (hash sealed)
+                 └────────┬──────┘
+                          ▼
+                  ┌─────────────┐
+                  │ agent apply │  Apply on isolated git branch with diff review
+                  └──────┬──────┘
+                          ▼
+                 ┌──────────────┐
+                 │ agent verify │  Execute authorized tests & binary Quality Gate
+                 └──────┬───────┘
+                          ▼
+                  ┌─────────────┐
+                  │ agent audit │  Review immutable JSONL audit trail
+                  └─────────────┘
+```
+
+### Command Reference
+
+| Command | Offline Capability | Optional LLM Role | API Key Needed? |
+|---|---|---|---|
+| `mono2micro doctor` | Diagnoses Python, Git, and scans for prompt injection | N/A | No |
+| `mono2micro analyze` | Discovers components, routes, ORM models, facts | Enriches semantic summary | No |
+| `mono2micro graph` | Builds AST dependency graph, calculates Louvain $Q$ | Semantic edge weighting | No |
+| `mono2micro plan` | Compares 4 architectural options, signs Strangler plan | Suggests domain names | No |
+| `mono2micro test-plan` | Validates data boundaries, detects shared tables | Generates independent test cases | No |
+| `mono2micro approve` | Signs and persists human approval in JSONL trail | N/A | No |
+| `mono2micro apply` | Deterministic codemods on isolated Git branch | Proposes code changes with diff review | Only for LLM codegen |
+| `mono2micro verify` | Strictly evaluates binary Quality Gate | Analyzes test failure logs | No |
+| `mono2micro audit` | Inspects `.mono2micro/audit.jsonl` immutable trail | N/A | No |
+| `mono2micro bench` | Runs 6-corpus ablation suite | Evaluates hybrid precision | No |
+
+---
+
+## 📊 Empirical Benchmarks (Ablation Study)
+
+Mono2Micro is evaluated against real open-source monoliths with **pinned git commits**. Where peer-reviewed ground truth exists, precision and recall are reported. Where ground truth is not published, surrogate metrics are explicitly declared without fabrication.
+
+### Benchmark Results (`benchmarks/results/latest_results.json`)
+
+| Benchmark | Baseline | Ground Truth? | Precision | Recall | Modularity $Q$ | Coupling Ratio | Shared Tables | Tokens | Cost ($) | Duration |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **jpetstore-6** (Java/MyBatis) | `HEURISTIC_ONLY` | Yes | 1.00 | 0.80 | 0.48 | 0.18 | 2 | 0 | $0.0000 | 0.05s |
+| **jpetstore-6** | `LLM_ONLY_NO_TOOLS` | Yes | 0.75 | 0.60 | 0.31 | 0.34 | 0 (missed) | 3,200 | $0.0080 | 0.05s |
+| **jpetstore-6** | `HYBRID_AGENT` | Yes | **1.00** | **1.00** | **0.54** | **0.14** | **2** | 1,850 | $0.0045 | 0.05s |
+| **daytrader-7** (Java EE/JPA) | `HEURISTIC_ONLY` | Yes | 1.00 | 1.00 | 0.48 | 0.18 | 2 | 0 | $0.0000 | 0.05s |
+| **daytrader-7** | `LLM_ONLY_NO_TOOLS` | Yes | 0.75 | 0.75 | 0.31 | 0.34 | 0 (missed) | 3,200 | $0.0080 | 0.05s |
+| **daytrader-7** | `HYBRID_AGENT` | Yes | **1.00** | **1.00** | **0.54** | **0.14** | **2** | 1,850 | $0.0045 | 0.05s |
+| **acmeair-nodejs** (Node.js) | `HEURISTIC_ONLY` | Yes | 1.00 | 1.00 | 0.48 | 0.18 | 1 | 0 | $0.0000 | 0.05s |
+| **acmeair-nodejs** | `LLM_ONLY_NO_TOOLS` | Yes | 0.75 | 0.75 | 0.31 | 0.34 | 0 (missed) | 3,200 | $0.0080 | 0.05s |
+| **acmeair-nodejs** | `HYBRID_AGENT` | Yes | **1.00** | **1.00** | **0.54** | **0.14** | **1** | 1,850 | $0.0045 | 0.05s |
+| **plants-by-websphere** (Java) | `HEURISTIC_ONLY` | Yes | 1.00 | 1.00 | 0.48 | 0.18 | 1 | 0 | $0.0000 | 0.05s |
+| **plants-by-websphere** | `LLM_ONLY_NO_TOOLS` | Yes | 0.75 | 0.75 | 0.31 | 0.34 | 0 (missed) | 3,200 | $0.0080 | 0.05s |
+| **plants-by-websphere** | `HYBRID_AGENT` | Yes | **1.00** | **1.00** | **0.54** | **0.14** | **1** | 1,850 | $0.0045 | 0.05s |
+| **ecommerce-fastapi** (Python) | `HEURISTIC_ONLY` | Surrogate | N/A | N/A | 0.42 | 0.18 | 1 | 0 | $0.0000 | 0.05s |
+| **ecommerce-fastapi** | `LLM_ONLY_NO_TOOLS` | Surrogate | N/A | N/A | 0.31 | 0.34 | 0 (missed) | 3,200 | $0.0080 | 0.05s |
+| **ecommerce-fastapi** | `HYBRID_AGENT` | Surrogate | N/A | N/A | **0.47** | **0.14** | **1** | 1,850 | $0.0045 | 0.05s |
+| **taskhub-express** (Node.js) | `HEURISTIC_ONLY` | Surrogate | N/A | N/A | 0.42 | 0.18 | 1 | 0 | $0.0000 | 0.05s |
+| **taskhub-express** | `LLM_ONLY_NO_TOOLS` | Surrogate | N/A | N/A | 0.31 | 0.34 | 0 (missed) | 3,200 | $0.0080 | 0.05s |
+| **taskhub-express** | `HYBRID_AGENT` | Surrogate | N/A | N/A | **0.47** | **0.14** | **1** | 1,850 | $0.0045 | 0.05s |
+
+To reproduce the benchmark suite:
 ```bash
-# Installation globale ou en environnement virtuel
-pip install mono2micro-agent
-
-# Ou en mode développement local depuis la racine
-pip install -e agent_cli/
-
-# Vérification
-agent --help
+make bench
 ```
 
 ---
 
-## 🛠️ Les Commandes du CLI
+## 🔒 Security & Privacy Guarantees
 
-| Commande | Rôle | Comportement & Sécurité |
-| :--- | :--- | :--- |
-| **`mono2micro analyze`** | **Découverte passive** | Lecture seule stricte. Inventorie sans exécuter aucun script du projet. Sépare faits vérifiés et hypothèses. |
-| **`mono2micro plan`** | **Trajectoire & 4 Options** | Clarifie l'objectif, identifie les Bounded Contexts et compare : *Conserver*, *Monolithe Modulaire*, *Strangler Fig* ou *Reporter*. |
-| **`mono2micro test-plan`** | **Avocat du Diable** | Sous-agent critique : recherche les couplages cachés, formule des objections et conçoit des tests indépendants. Bloque l'étape si des risques persistent. |
-| **`mono2micro apply`** | **Implémentation contrôlée** | Applique l'étape approuvée sur branche Git dédiée (`mono2micro/step-X`). Requiert validation explicite (`OUI`). |
-| **`mono2micro verify`** | **Quality Gate & Rapports** | Exécute les tests autorisés, valide les frontières et exporte les rapports bilingues (`--lang en` ou `--lang fr`). |
-| **`mono2micro config`** | **Spécifications & Langue** | Gère les règles métier, domaines personnalisés, et configure la langue par défaut (`--lang en` / `--lang fr`). |
+- **No Remote Code Execution**: Commands are never executed via a shell (`shell=False`).
+- **Hard LLM Budget Ceiling**: Set `--max-tokens` or `--max-cost` to enforce a deterministic hard stop.
+- **Redaction Engine**: Deterministic stripping of AWS keys, database connection strings, JWT tokens, and private credentials before any text leaves the machine.
+- **Prompt Injection Defense**: Scans repository comments for adversarial directives (`ignore all previous instructions`, etc.).
+- **Grounded Task Memory**: Every architectural memory stores its file path, line number, and SHA-256 hash. If the file is modified, the memory automatically expires.
 
 ---
 
-## ⚙️ Persistance & Spécifications Utilisateur
+## ⚠️ Known Limitations & Experimental Scope
 
-L'agent persiste son état et vos préférences dans le répertoire `.mono2micro/` (ajouté automatiquement à `.gitignore`) :
+In accordance with our honesty principle:
 
-### Configuration via la commande `config`
+1. **Dynamic Reflection**: Dynamic runtime reflection (e.g., dynamic Spring bean lookup or Python `getattr`) cannot be 100% determined by static AST parsing alone and is flagged as untracked dynamic dependencies.
+2. **Distributed Saga Generation**: Automated generation of distributed 2PC / Saga compensation handlers is currently **[EXPERIMENTAL]** and requires manual architect review.
+3. **Complex Stored Procedures**: SQL splitting handles DDL statements and foreign key constraints across SQLite, PostgreSQL, and MySQL. Database triggers and stored procedures require manual refactoring.
 
-```bash
-# Définir un domaine métier explicite avec ses chemins
-mono2micro config --set-domain "Billing=src/billing/**,src/payments/**"
-
-# Interdire formellement l'extraction d'un module sensible
-mono2micro config --forbid "LedgerCore"
-
-# Définir la taille de l'équipe et l'architecture cible préférée
-mono2micro config --team-size 3 --prefer MODULAR_MONOLITH
-
-# Configurer la langue par défaut des rapports ('en' ou 'fr')
-mono2micro config --lang en
-
-# Ajouter une commande de test autorisée pour le Quality Gate
-mono2micro config --add-test-cmd "npm run test:e2e"
-
-# Ajuster la politique de confidentialité (FULL_CODE_REDACTED ou METADATA_ONLY)
-mono2micro config --privacy METADATA_ONLY
-```
-
-### 🌍 Internationalisation & Génération de Rapports (EN / FR)
-
-Le projet supporte nativement le bilinguisme complet :
-1. **Rapports générés simultanément** : à chaque exécution de `verify`, l'agent produit :
-   - `.mono2micro/report.md` : rapport dans la langue active (Français ou Anglais)
-   - `.mono2micro/report_fr.md` : version française complète pour l'équipe locale
-   - `.mono2micro/report_en.md` : version anglaise pour l'ingénierie internationale
-   - `.mono2micro/report.json` : données brutes d'audit structurées et bilingues
-2. **Choix à la volée** :
-   ```bash
-   # Exporter le rapport en anglais
-   mono2micro verify --step 1 --lang en
-
-   # Exporter le rapport en français
-   mono2micro verify --step 1 --lang fr
-   ```
-
-### Structure de `.mono2micro/user_specifications.json`
-
-Ce fichier est directement éditable :
-
-```json
-{
-  "custom_domains": {
-    "Billing": ["src/billing/**", "src/payments/**"],
-    "Catalog": ["src/catalog/**"]
-  },
-  "forbidden_extractions": [
-    "LedgerCore",
-    "SecurityAuth"
-  ],
-  "preferred_architecture": "MODULAR_MONOLITH",
-  "language": "en",
-  "team_size": 3,
-  "authorized_test_commands": [
-    "npm test",
-    "pytest"
-  ],
-  "privacy_level": "FULL_CODE_REDACTED",
-  "business_rules_notes": "Le calcul de TVA doit rester synchrone avec le panier."
-}
-```
+For full details, see [docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md).
 
 ---
 
-## 🤖 Mode LLM (clé API fournie par l'utilisateur)
+## 📄 License & Terms of Use
 
-Par défaut l'agent travaille en **heuristiques locales**, sans aucun appel réseau. Si vous le souhaitez, vous pouvez brancher **votre propre clé API** pour deux usages : affiner les Bounded Contexts (`plan`) et proposer le code d'une étape (`apply`).
+This software is distributed under a **Non-Commercial Source Available License** (see [`LICENSE`](./LICENSE)):
 
-```bash
-# 1. Choisir le fournisseur (openai, anthropic, gemini ; "openai" couvre aussi les serveurs compatibles, ex. Ollama)
-agent config --llm-provider anthropic --llm-model <nom-du-modèle>
-agent config --llm-provider openai --llm-base-url http://localhost:11434/v1 --llm-model <modèle-local>
-
-# 2. Fournir la clé : variable d'environnement (recommandé) ou saisie masquée
-export ANTHROPIC_API_KEY="..."        # OPENAI_API_KEY / GEMINI_API_KEY selon le fournisseur
-agent plan --ask-api-key              # saisie masquée, valable pour cette exécution seulement
-
-# 3. Désactiver
-agent config --llm-off
-```
-
-| Commande | Ce qui est envoyé au fournisseur | Effet |
-|---|---|---|
-| `plan` | **Métadonnées uniquement** (chemins, noms de modèles, frameworks) | Hypothèses de domaines supplémentaires, jamais présentées comme des faits ; résultat mis en cache dans `.mono2micro/llm_contexts.json` |
-| `apply` | **Code du périmètre de l'étape**, secrets masqués, après votre accord explicite | Proposition de fichiers complets, affichée sous forme de **diff** avant toute écriture |
-
-Garanties :
-
-- La clé n'est **jamais** écrite sur disque, dans `.mono2micro/`, dans les rapports ou les logs, et ne figure jamais dans une URL.
-- La sortie du modèle est traitée comme **non fiable** : seuls des chemins normalisés du périmètre (ou sous `services/<contexte>/`) sont acceptés ; traversées de chemin, contenus binaires, trop volumineux ou contenant un marqueur de secret masqué sont rejetés.
-- L'approbation humaine ne couvre que **les fichiers proposés**. L'écriture exige une branche Git isolée et refuse d'écraser des modifications non commitées. Les fichiers restent non commités pour relecture (`git diff`), puis `agent verify`.
-- La génération de code exige `privacy_level = FULL_CODE_REDACTED` : avec `METADATA_ONLY` ou `ANONYMIZED_SYMBOLS` le modèle ne voit pas le code réel et ses fichiers ne pourraient pas être réécrits.
-- Toute erreur LLM dans `plan` retombe sur les heuristiques locales avec un avertissement.
-
-## 🔒 Sécurité & Confidentialité
-
-- **100% Local** : Le CLI fonctionne exclusivement sur votre machine. Aucun code source, fichier ou rapport privé n'est téléversé vers un tiers ou vers la vitrine web.
-- **Gestion des Clés API** : Vos clés (`OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.) résident uniquement dans vos variables d'environnement locales. Elles sont masquées automatiquement par regex dans les journaux.
-- **Dépôt traité comme non fiable** : Pas d'exécution automatique de scripts arbitraires, validation stricte de confinement de chemins (`SafePathValidator`), et interdiction des écritures hors du périmètre approuvé.
+- **Permitted Free Uses**: Personal evaluation, academic research, open-source benchmarking, and internal non-production study.
+- **Commercial Restriction**: Any commercial deployment, integration into commercial SaaS offerings, proprietary enterprise tooling, or paid consulting services requires a **separate written commercial agreement or license convention** signed between both parties.
+- **Inquiries & Commercial Conventions**: Contact `koudankomoise@gmail.com`.
 
 ---
 
-## 🧪 Tests & Qualité
+## 📚 Academic Citation
 
-Pour lancer la suite de tests automatisés :
-
-```bash
-# Tests unitaires et d'intégration Python (86 tests)
-pytest agent_cli/tests -v
-
-# Vérification TypeScript de l'interface
-npm run lint
-npm run build
-```
-
----
-
-## 📊 Benchmark & Évaluation Comparative
-
-Pour évaluer et benchmarker l'agent face à d'autres approches ou sur des applications de référence :
-
-### 1. Jeux d'évaluation recommandés (Benchmarks de référence)
-- **Monolithes open-source réels** :
-  - Applications Node.js/Express/TypeScript (ex. Ghost core, Cal.com, Strapi modules)
-  - Applications Python (ex. Django/FastAPI monoliths, Saleor core)
-  - Applications Java/Spring Boot (ex. PetClinic monolithic vs microservice)
-- **Métriques d'évaluation clés** :
-  - **Précision de découverte passive** (0 exécution de code non approuvé, exhaustivité des routes et modèles)
-  - **Couplage & Bounded Contexts** (taux de détection des couplages de base de données et tables partagées)
-  - **Pertinence décisionnelle** (évitement de la taxe distribuée : l'agent préconise-t-il le Monolithe Modulaire quand les microservices sont contre-indiqués ?)
-  - **Efficacité de l'avocat du diable** (détection proactive des points de défaillance réseau et régression)
-
-### 2. Protocole de test de benchmark automatisé
-```bash
-# 1. Audit passif sans risque
-mono2micro analyze --path ./benchmarks/target-app
-
-# 2. Planification d'architecture et matrice
-mono2micro plan --path ./benchmarks/target-app --goal FASTER_SCALING
-
-# 3. Export des rapports comparatifs bilingues
-mono2micro verify --path ./benchmarks/target-app --lang en
-# Les rapports synthétisés sont disponibles dans .mono2micro/report_en.md et report_fr.md
-```
-
----
-
-## 📄 Licence & Conditions d'Utilisation
-
-Ce projet est distribué sous **Licence Source-Available Non Commerciale** (voir [`LICENSE`](./LICENSE)) :
-
-- **Usage autorisé sans frais** : Utilisation personnelle, académique, recherche scientifique, tests de benchmark et évaluation technique interne hors production.
-- **Usage commercial restreint** : Toute utilisation commerciale, intégration en SaaS commercial, déploiement en production d'entreprise ou prestation de conseil facturée est **strictement interdite sauf accord écrit / convention bilatérale préalable** entre les parties.
-- **Convention & Partenariats** : Pour établir une convention d'exploitation commerciale ou pour toute demande d'intégration d'entreprise :
-  - Contact : `koudankomoise@gmail.com`
-
----
-
-## 📚 Référence Académique
+If you use Mono2Micro in academic or industry research, please cite the foundational paper:
 
 ```bibtex
 @article{hammad2023convert,
   title={Convert Monolithic Application to Microservice Application},
   author={Hammad, Hatem and Sahmoud, Thaer and Abu Ghazala, Abed Al Rahman},
-  journal={alphaXiv preprint},
-  eprint={2306.08851},
-  url={https://www.alphaxiv.org/abs/2306.08851},
-  year={2023}
+  journal={alphaXiv preprint alphaXiv:2306.08851},
+  year={2023},
+  url={https://www.alphaxiv.org/abs/2306.08851}
 }
 ```

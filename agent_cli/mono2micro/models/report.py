@@ -8,6 +8,7 @@ model hypotheses, recommended paths, devil's advocate reviews, and citations fro
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from mono2micro.models.time_utils import utc_now
 
 from mono2micro.models.discovery import DiscoveryReport
 from mono2micro.models.objectives import MigrationObjectiveClarification
@@ -23,7 +24,7 @@ class FinalReport(BaseModel):
     """Full end-to-end report document."""
     report_id: str
     target_project_path: str
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utc_now)
     
     # Paper reference metadata
     paper_title: str = "Convert Monolithic Application to Microservice Application"

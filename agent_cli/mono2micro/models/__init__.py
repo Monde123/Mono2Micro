@@ -1,5 +1,6 @@
-"""Mono2Micro Domain and Data Models."""
+"""Mono2Micro Domain, Architecture, and Contract Models."""
 
+from mono2micro.models.time_utils import utc_now
 from mono2micro.models.paper_reference import (
     PaperPrincipleId,
     PaperPrincipleCitation,
@@ -53,8 +54,53 @@ from mono2micro.models.quality_gate import (
     QualityGateResult,
 )
 from mono2micro.models.report import FinalReport
+from mono2micro.models.audit import (
+    AuditActionType,
+    AuditLogRecord,
+    PlanApproval,
+)
+from mono2micro.models.graph import (
+    DependencyNodeType,
+    DependencyEdgeType,
+    DependencyNode,
+    DependencyEdge,
+    DependencyGraph,
+    PartitionCandidate,
+    PartitionEvaluation,
+)
+from mono2micro.models.data_analysis import (
+    PersistenceMechanism,
+    TableAccessOperation,
+    TableAccessRecord,
+    ForeignKeyRelation,
+    TransactionScope,
+    DataLayerAnalysis,
+)
+from mono2micro.models.benchmarks import (
+    BenchmarkBaselineMode,
+    BenchmarkCorpusItem,
+    BenchmarkRunResult,
+    BenchmarkEvaluationReport,
+)
+from mono2micro.models.migration import (
+    CodemodKind,
+    CodemodResult,
+    FixLoopAttempt,
+    FixLoopSession,
+    GatewayRouteConfig,
+    FeatureFlagConfig,
+)
+from mono2micro.models.memory import (
+    AdversarialDiffRule,
+    AdversarialDiffViolation,
+    GroundedMemoryProof,
+    TaskMemoryItem,
+)
+from mono2micro.models.budget import LLMBudgetTracker
+from mono2micro.models.doctor import CommandCapability, DoctorReport
 
 __all__ = [
+    "utc_now",
     "PaperPrincipleId",
     "PaperPrincipleCitation",
     "PAPER_PRINCIPLES",
@@ -92,4 +138,37 @@ __all__ = [
     "QualityGateCriterion",
     "QualityGateResult",
     "FinalReport",
+    "AuditActionType",
+    "AuditLogRecord",
+    "PlanApproval",
+    "DependencyNodeType",
+    "DependencyEdgeType",
+    "DependencyNode",
+    "DependencyEdge",
+    "DependencyGraph",
+    "PartitionCandidate",
+    "PartitionEvaluation",
+    "PersistenceMechanism",
+    "TableAccessOperation",
+    "TableAccessRecord",
+    "ForeignKeyRelation",
+    "TransactionScope",
+    "DataLayerAnalysis",
+    "BenchmarkBaselineMode",
+    "BenchmarkCorpusItem",
+    "BenchmarkRunResult",
+    "BenchmarkEvaluationReport",
+    "CodemodKind",
+    "CodemodResult",
+    "FixLoopAttempt",
+    "FixLoopSession",
+    "GatewayRouteConfig",
+    "FeatureFlagConfig",
+    "AdversarialDiffRule",
+    "AdversarialDiffViolation",
+    "GroundedMemoryProof",
+    "TaskMemoryItem",
+    "LLMBudgetTracker",
+    "CommandCapability",
+    "DoctorReport",
 ]

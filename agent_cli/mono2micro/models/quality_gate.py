@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional
 from enum import Enum
 from datetime import datetime
+from mono2micro.models.time_utils import utc_now
 
 
 class CriterionStatus(str, Enum):
@@ -44,7 +45,7 @@ class QualityGateCriterion(BaseModel):
 
 class QualityGateResult(BaseModel):
     """Outcome of Quality Gate evaluation."""
-    evaluated_at: datetime = Field(default_factory=datetime.utcnow)
+    evaluated_at: datetime = Field(default_factory=utc_now)
     step_number: Optional[int] = None
     criteria: List[QualityGateCriterion] = Field(default_factory=list)
     overall_passed: bool = False

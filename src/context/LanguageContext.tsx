@@ -91,6 +91,8 @@ export interface Translations {
     tagline: string;
     academic: string;
     disclaimer: string;
+    license: string;
+    benchmarks: string;
   };
 }
 
@@ -226,6 +228,8 @@ const translations: Record<Language, Translations> = {
       academic:
         'Rendu opérationnel des principes de Hatem Hammad, Thaer Sahmoud et Abed Al Rahman Abu Ghazala (2023).',
       disclaimer: 'Site vitrine statique · Zéro transit de code ou de données privées',
+      license: 'Licence non commerciale (convention / accord requis pour tout usage commercial)',
+      benchmarks: 'Évalué sur benchmarks publics & synthétiques (JPetStore, DayTrader, AcmeAir)',
     },
   },
   en: {
@@ -359,6 +363,8 @@ const translations: Record<Language, Translations> = {
       academic:
         'Operational implementation of principles by Hatem Hammad, Thaer Sahmoud, and Abed Al Rahman Abu Ghazala (2023).',
       disclaimer: 'Static documentation website · Zero telemetry, zero private data transfer',
+      license: 'Non-Commercial Source Available License (agreement required for commercial use)',
+      benchmarks: 'Evaluated against public & synthetic benchmarks (JPetStore, DayTrader, AcmeAir)',
     },
   },
 };

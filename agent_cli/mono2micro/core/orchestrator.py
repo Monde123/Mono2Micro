@@ -18,6 +18,7 @@ Supports both online LLM providers and local heuristic fallback.
 import os
 from typing import List, Optional, Dict, Tuple
 from datetime import datetime
+from mono2micro.models.time_utils import utc_now
 
 from mono2micro.models.discovery import DiscoveryReport
 from mono2micro.models.objectives import MigrationObjectiveClarification, MigrationGoalType
@@ -36,6 +37,8 @@ from mono2micro.agents.test_adversary import TestAdversaryAgent
 from mono2micro.agents.implementer import ImplementerAgent
 from mono2micro.agents.verifier import VerifierAgent
 from mono2micro.core.permissions import PermissionEngine
+from mono2micro.core.audit_logger import AuditLogger, PlanTamperedError
+from mono2micro.models.audit import AuditActionType
 from mono2micro.config import ProjectStateStore, UserSpecifications
 
 
@@ -46,6 +49,7 @@ class MigrationOrchestrator:
         self.target_directory = target_directory
         self.llm = llm
         self.permissions = PermissionEngine(target_directory)
+        self.audit_logger = AuditLogger(target_directory)
         self.store = ProjectStateStore(target_directory)
         self.user_specs = self.store.get_user_specifications()
         
@@ -70,6 +74,25 @@ class MigrationOrchestrator:
         """Step 1: Read-only static discovery without code execution."""
         self.discovery_report = self.repo_analyzer.analyze()
         return self.discovery_report
+
+    def build_dependency_graph(self):
+        """Build full AST dependency graph and compute offline Louvain partitions."""
+        from mono2micro.analysis.graph_engine import GraphEngine
+        import json
+        engine = GraphEngine(self.target_directory)
+        graph = engine.build_graph()
+        eval_result = engine.cluster_louvain(graph)
+
+        m2m_dir = os.path.join(self.target_directory, ".mono2micro")
+        os.makedirs(m2m_dir, exist_ok=True)
+        graph_path = os.path.join(m2m_dir, "dependency_graph.json")
+        engine.export_graph_json(graph, graph_path)
+
+        partition_path = os.path.join(m2m_dir, "partitions.json")
+        with open(partition_path, "w", encoding="utf-8") as f:
+            json.dump(eval_result.model_dump(), f, indent=2)
+
+        return graph, eval_result
 
     def step_2_clarify_objectives(
         self,
@@ -137,9 +160,20 @@ class MigrationOrchestrator:
             self.step_4_compare_options()
 
         option = selected_option or self.options_matrix.recommended_option
-        self.strangler_plan = self.migration_architect.build_strangler_plan(
+        plan = self.migration_architect.build_strangler_plan(
             self.candidate_domains,
             option
+        )
+        plan.compute_canonical_hash()
+        self.strangler_plan = plan
+        self.audit_logger.log_action(
+            action=AuditActionType.PLAN_CREATED,
+            plan_id=plan.plan_id,
+            plan_hash=plan.plan_hash or "",
+            details={
+                "target_architecture": plan.target_architecture_summary,
+                "steps_count": len(plan.steps),
+            },
         )
         return self.strangler_plan
 
@@ -200,7 +234,21 @@ class MigrationOrchestrator:
             user_confirmation_input=user_input_confirmation
         )
         step.approval_token = record.token
+
+        # Persist approval signature to approvals.jsonl and audit.jsonl
+        self.audit_logger.record_approval(
+            plan=self.strangler_plan,
+            step_number=step_number,
+            approval_token=record.token,
+            approver=record.approver,
+        )
         return record.token
+
+    def verify_plan_before_apply(self, step_number: int) -> Tuple[bool, str]:
+        """Verify that current plan has not been tampered with since approval."""
+        if not self.strangler_plan:
+            raise ValueError("No migration plan loaded.")
+        return self.audit_logger.verify_plan_integrity(self.strangler_plan, step_number)
 
     def step_8_apply_step(
         self,
@@ -261,7 +309,7 @@ class MigrationOrchestrator:
             self.step_4_compare_options()
 
         return FinalReport(
-            report_id=f"REP-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            report_id=f"REP-{utc_now().strftime('%Y%m%d%H%M%S')}",
             target_project_path=self.target_directory,
             discovery=self.discovery_report,
             objectives=self.objectives,

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
 from datetime import datetime
+from mono2micro.models.time_utils import utc_now
 
 
 class ObjectionSeverity(str, Enum):
@@ -54,7 +55,7 @@ class IndependentTestCase(BaseModel):
 
 class AdversarialReview(BaseModel):
     """Complete devil's advocate evaluation of a proposal or step."""
-    reviewed_at: datetime = Field(default_factory=datetime.utcnow)
+    reviewed_at: datetime = Field(default_factory=utc_now)
     target_step_number: Optional[int] = None
     step_is_blocked: bool = False
     blocking_reasons: List[str] = Field(default_factory=list)
