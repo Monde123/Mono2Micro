@@ -13,9 +13,9 @@ from mono2micro.models.time_utils import utc_now
 
 
 class ObjectionSeverity(str, Enum):
-    BLOCKING = "BLOCKING"      # Migration step MUST NOT proceed until addressed
-    WARNING = "WARNING"        # Significant risk to monitor closely
-    OBSERVATION = "OBSERVATION"# Architectural consideration
+    BLOCKING = "BLOCKING"
+    WARNING = "WARNING"
+    OBSERVATION = "OBSERVATION"
 
 
 class AdversarialObjection(BaseModel):
@@ -23,11 +23,18 @@ class AdversarialObjection(BaseModel):
     objection_id: str
     severity: ObjectionSeverity
     topic: str
-    argument_fr: str
+    argument: str = ""
+    argument_fr: Optional[str] = None
     evidence_or_counterexample: str
     suggested_remedy: str
     is_resolved: bool = False
     resolution_notes: Optional[str] = None
+
+    def __init__(self, **data):
+        arg = data.get("argument") or data.get("argument_fr") or ""
+        data["argument"] = arg
+        data["argument_fr"] = arg
+        super().__init__(**data)
 
 
 class HiddenCouplingRisk(BaseModel):
@@ -35,7 +42,7 @@ class HiddenCouplingRisk(BaseModel):
     coupling_name: str
     module_a: str
     module_b: str
-    coupling_mechanism: str  # e.g., "Shared Redis key", "Direct SQL JOIN on external table", "Global singleton", "Shared static configuration"
+    coupling_mechanism: str
     impact_if_separated: str
     recommended_mitigation: str
 
@@ -63,4 +70,11 @@ class AdversarialReview(BaseModel):
     hidden_coupling_risks: List[HiddenCouplingRisk] = Field(default_factory=list)
     independent_test_cases: List[IndependentTestCase] = Field(default_factory=list)
     ambiguous_requirements: List[str] = Field(default_factory=list)
-    recommendation_summary_fr: str
+    recommendation_summary: str = ""
+    recommendation_summary_fr: Optional[str] = None
+
+    def __init__(self, **data):
+        rec = data.get("recommendation_summary") or data.get("recommendation_summary_fr") or ""
+        data["recommendation_summary"] = rec
+        data["recommendation_summary_fr"] = rec
+        super().__init__(**data)

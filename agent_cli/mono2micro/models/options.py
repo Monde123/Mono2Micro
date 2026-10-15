@@ -31,8 +31,8 @@ class OptionEvaluation(BaseModel):
     uncertainties: List[str] = Field(default_factory=list)
     
     # Quantitative estimates (indicative)
-    complexity_rating: str  # "FAIBLE", "MOYENNE", "ÉLEVÉE", "TRÈS ÉLEVÉE"
-    operational_overhead: str  # "MINIME", "MODÉRÉ", "IMPORTANT", "LOURD"
+    complexity_rating: str  # "LOW", "MEDIUM", "HIGH", "VERY HIGH"
+    operational_overhead: str  # "MINIMAL", "MODERATE", "SIGNIFICANT", "HEAVY"
     suitability_score: float = Field(ge=0.0, le=1.0)
     is_recommended: bool = False
     recommendation_rationale: str = ""
@@ -42,5 +42,12 @@ class OptionsComparisonMatrix(BaseModel):
     """Comparative analysis across all 4 options."""
     evaluations: List[OptionEvaluation]
     recommended_option: ArchitectureOptionType
-    synthesis_fr: str
+    synthesis: str = ""
+    synthesis_fr: Optional[str] = None
     key_tradeoffs: List[str] = Field(default_factory=list)
+
+    def __init__(self, **data):
+        syn = data.get("synthesis") or data.get("synthesis_fr") or ""
+        data["synthesis"] = syn
+        data["synthesis_fr"] = syn
+        super().__init__(**data)

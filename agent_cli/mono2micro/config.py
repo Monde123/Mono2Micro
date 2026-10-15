@@ -6,6 +6,15 @@ from typing import Optional, Dict, List
 from pydantic import BaseModel, Field
 from mono2micro.core.security import SafePathValidator
 
+if not hasattr(BaseModel, "model_dump"):
+    def _model_dump_compat(self, *args, **kwargs):
+        mode = kwargs.pop("mode", None)
+        if mode == "json":
+            import json
+            return json.loads(self.json())
+        return self.dict(*args, **kwargs)
+    BaseModel.model_dump = _model_dump_compat
+
 
 STATE_DIR_NAME = ".mono2micro"
 USER_SPECS_FILENAME = "user_specifications.json"
@@ -15,47 +24,47 @@ class UserSpecifications(BaseModel):
     """User-defined domain preferences, team constraints and safety boundaries."""
     custom_domains: Dict[str, List[str]] = Field(
         default_factory=dict,
-        description="Domaines métier personnalisés et leurs chemins de fichiers associés (ex: {'Facturation': ['src/billing/**']})"
+        description="Custom business domains and associated file paths (e.g. {'Billing': ['src/billing/**']})"
     )
     forbidden_extractions: List[str] = Field(
         default_factory=list,
-        description="Modules ou tables interdits d'extraction en microservice (ex: ['Ledger', 'AuthCore'])"
+        description="Modules or tables forbidden from microservice extraction (e.g. ['Ledger', 'AuthCore'])"
     )
     preferred_architecture: Optional[str] = Field(
         default=None,
-        description="Choix d'architecture préféré par l'équipe (MODULAR_MONOLITH, STRANGLER_MICROSERVICES, KEEP_MONOLITH)"
+        description="Team's preferred architectural choice (MODULAR_MONOLITH, STRANGLER_MICROSERVICES, KEEP_MONOLITH)"
     )
     team_size: int = Field(
         default=2,
-        description="Nombre d'ingénieurs dans l'équipe travaillant sur le projet"
+        description="Number of engineers on the team working on the project"
     )
     authorized_test_commands: List[str] = Field(
         default_factory=lambda: ["npm test", "pytest"],
-        description="Commandes de test formellement autorisées pour le Quality Gate"
+        description="Test commands formally authorized for Quality Gate execution"
     )
     privacy_level: str = Field(
         default="FULL_CODE_REDACTED",
-        description="Politique de confidentialité : FULL_CODE_REDACTED, METADATA_ONLY ou ANONYMIZED_SYMBOLS"
+        description="Privacy policy: FULL_CODE_REDACTED, METADATA_ONLY, or ANONYMIZED_SYMBOLS"
     )
     business_rules_notes: Optional[str] = Field(
         default=None,
-        description="Notes et contraintes métier spécifiques rédigées par l'équipe"
+        description="Specific business notes and constraints written by the team"
     )
     language: str = Field(
-        default="fr",
-        description="Langue par défaut des rapports et analyses ('fr' ou 'en')"
+        default="en",
+        description="Default language for reports and analyses ('en')"
     )
     llm_provider: Optional[str] = Field(
         default=None,
-        description="Fournisseur LLM : openai (ou compatible), anthropic, gemini. None = mode heuristique local. La clé API n'est JAMAIS stockée ici."
+        description="LLM provider: openai (or compatible), anthropic, gemini. None = local heuristic mode. API key is NEVER stored here."
     )
     llm_model: Optional[str] = Field(
         default=None,
-        description="Nom du modèle à utiliser chez le fournisseur choisi"
+        description="Model name to use with the selected provider"
     )
     llm_base_url: Optional[str] = Field(
         default=None,
-        description="URL de base personnalisée (serveur compatible OpenAI, ex: Ollama local)"
+        description="Custom base URL (OpenAI-compatible server, e.g. local Ollama)"
     )
 
 

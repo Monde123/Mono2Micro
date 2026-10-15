@@ -97,4 +97,4 @@ def test_quality_gate_fails_when_mandatory_criterion_is_skipped_or_unverified():
 
     assert result.overall_passed is False
     assert result.skipped_mandatory_count == 1
-    assert "NON VÉRIFIÉ(S)" in result.blocker_summary_fr
+    assert "UNVERIFIED" in (result.blocker_summary or result.blocker_summary_fr)

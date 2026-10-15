@@ -44,6 +44,9 @@ class BenchmarkRunner:
 
         repo_dir = self.cache_dir / item.name
         if not repo_dir.exists() or not (repo_dir / ".git").exists():
+            if repo_dir.exists():
+                import shutil
+                shutil.rmtree(repo_dir)
             repo_dir.parent.mkdir(parents=True, exist_ok=True)
             res = subprocess.run(
                 ["git", "clone", "--quiet", item.git_repo_url, str(repo_dir)],

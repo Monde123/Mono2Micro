@@ -7,7 +7,7 @@ Enforces Workflow Step 9:
 - Non-executed or skipped mandatory tests immediately fail the gate.
 """
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, root_validator
 from typing import List, Optional
 from enum import Enum
 from datetime import datetime
@@ -25,8 +25,8 @@ class QualityGateCategory(str, Enum):
     REGRESSION_TESTS = "REGRESSION_TESTS"
     API_CONTRACT = "API_CONTRACT"
     DATA_CONSISTENCY = "DATA_CONSISTENCY"
-    ARCHITECTURAL_BOUNDARY = "ARCHITECTURAL_BOUNDARY"  # No direct external DB access
-    FAILURE_BEHAVIOR = "FAILURE_BEHAVIOR"              # Circuit breaker / graceful degradation
+    ARCHITECTURAL_BOUNDARY = "ARCHITECTURAL_BOUNDARY"
+    FAILURE_BEHAVIOR = "FAILURE_BEHAVIOR"
     BUILD_AND_LINT = "BUILD_AND_LINT"
 
 
@@ -53,32 +53,37 @@ class QualityGateResult(BaseModel):
     skipped_mandatory_count: int = 0
     passed_mandatory_count: int = 0
     total_criteria_count: int = 0
+    blocker_summary: Optional[str] = None
     blocker_summary_fr: Optional[str] = None
 
-    @model_validator(mode="after")
-    def enforce_strict_no_averaging_policy(self) -> "QualityGateResult":
+    @root_validator(skip_on_failure=True)
+    def enforce_strict_no_averaging_policy(cls, values) -> dict:
         """Strict non-negotiable rule: Any failing or unverified mandatory criterion blocks the gate completely."""
-        mandatory_criteria = [c for c in self.criteria if c.is_mandatory]
+        criteria = values.get("criteria", [])
+        mandatory_criteria = [c for c in criteria if c.is_mandatory]
         failures = [c for c in mandatory_criteria if c.status == CriterionStatus.FAILED]
         skipped = [c for c in mandatory_criteria if c.status in (CriterionStatus.SKIPPED, CriterionStatus.UNVERIFIED)]
         passed = [c for c in mandatory_criteria if c.status == CriterionStatus.PASSED]
 
-        self.critical_failures_count = len(failures)
-        self.skipped_mandatory_count = len(skipped)
-        self.passed_mandatory_count = len(passed)
-        self.total_criteria_count = len(self.criteria)
+        values["critical_failures_count"] = len(failures)
+        values["skipped_mandatory_count"] = len(skipped)
+        values["passed_mandatory_count"] = len(passed)
+        values["total_criteria_count"] = len(criteria)
 
         if failures or skipped:
-            self.overall_passed = False
+            values["overall_passed"] = False
             reasons = []
             if failures:
-                reasons.append(f"{len(failures)} critère(s) obligatoire(s) en ÉCHEC: " + ", ".join(f.title for f in failures))
+                reasons.append(f"{len(failures)} mandatory criterion/criteria FAILED: " + ", ".join(f.title for f in failures))
             if skipped:
-                reasons.append(f"{len(skipped)} critère(s) obligatoire(s) NON VÉRIFIÉ(S): " + ", ".join(s.title for s in skipped))
-            self.blocker_summary_fr = " | ".join(reasons)
+                reasons.append(f"{len(skipped)} mandatory criterion/criteria UNVERIFIED: " + ", ".join(s.title for s in skipped))
+            msg = " | ".join(reasons)
+            values["blocker_summary"] = msg
+            values["blocker_summary_fr"] = msg
         else:
-            self.overall_passed = len(mandatory_criteria) > 0 and len(passed) == len(mandatory_criteria)
-            if self.overall_passed:
-                self.blocker_summary_fr = None
+            values["overall_passed"] = len(mandatory_criteria) > 0 and len(passed) == len(mandatory_criteria)
+            if values["overall_passed"]:
+                values["blocker_summary"] = None
+                values["blocker_summary_fr"] = None
 
-        return self
+        return values

@@ -20,15 +20,15 @@ class RoutingStrategyType(str, Enum):
     FEATURE_FLAG_IN_CODE = "FEATURE_FLAG_IN_CODE"
     STRANGLER_FACADE = "STRANGLER_FACADE"
     DNS_OR_INGRESS_SPLIT = "DNS_OR_INGRESS_SPLIT"
-    IN_PROCESS_ADAPTER = "IN_PROCESS_ADAPTER"  # For modular monolith internal refactoring
+    IN_PROCESS_ADAPTER = "IN_PROCESS_ADAPTER"
 
 
 class DataSeparationStrategy(str, Enum):
-    SHARED_DATABASE_TEMPORARY = "SHARED_DATABASE_TEMPORARY"  # Discouraged, must have sunset plan
-    LOGICAL_SCHEMA_SPLIT = "LOGICAL_SCHEMA_SPLIT"            # Same DB instance, isolated schemas
-    DATABASE_PER_SERVICE = "DATABASE_PER_SERVICE"            # Separate physical databases
-    DUAL_WRITE_SYNCHRONIZATION = "DUAL_WRITE_SYNCHRONIZATION" # For transition period
-    EVENT_DRIVEN_CDC = "EVENT_DRIVEN_CDC"                    # Change Data Capture / Outbox pattern
+    SHARED_DATABASE_TEMPORARY = "SHARED_DATABASE_TEMPORARY"
+    LOGICAL_SCHEMA_SPLIT = "LOGICAL_SCHEMA_SPLIT"
+    DATABASE_PER_SERVICE = "DATABASE_PER_SERVICE"
+    DUAL_WRITE_SYNCHRONIZATION = "DUAL_WRITE_SYNCHRONIZATION"
+    EVENT_DRIVEN_CDC = "EVENT_DRIVEN_CDC"
     READ_REPLICA_OR_CACHE = "READ_REPLICA_OR_CACHE"
 
 
@@ -46,12 +46,19 @@ class DataOwnershipPlan(BaseModel):
 
 class RollbackProcedure(BaseModel):
     """Explicit, testable rollback procedure."""
-    steps_fr: List[str]
+    steps: List[str] = Field(default_factory=list)
+    steps_fr: Optional[List[str]] = None
     git_revert_command: str
     routing_fallback_action: str
     data_revert_action: str
     estimated_time_to_recover_minutes: int
     tested_in_sandbox: bool = False
+
+    def __init__(self, **data):
+        s = data.get("steps") or data.get("steps_fr") or []
+        data["steps"] = s
+        data["steps_fr"] = s
+        super().__init__(**data)
 
 
 class StranglerStep(BaseModel):

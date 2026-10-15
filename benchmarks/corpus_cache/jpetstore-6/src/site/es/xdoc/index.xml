@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+       Copyright 2010-2026 the original author or authors.
+
+       Licensed under the Apache License, Version 2.0 (the "License");
+       you may not use this file except in compliance with the License.
+       You may obtain a copy of the License at
+
+          https://www.apache.org/licenses/LICENSE-2.0
+
+       Unless required by applicable law or agreed to in writing, software
+       distributed under the License is distributed on an "AS IS" BASIS,
+       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       See the License for the specific language governing permissions and
+       limitations under the License.
+
+-->
+<document xmlns="http://maven.apache.org/XDOC/2.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/XDOC/2.0 http://maven.apache.org/xsd/xdoc-2.0.xsd">
+
+  <properties>
+    <title>MyBatis-Spring | Código de ejemplo</title>
+    <author email="hpresnall@gmail.com">Hunter Presnall</author>
+    <author email="eduardo.macarron@gmail.com">Eduardo Macarron</author>
+  </properties>
+
+  <body>
+    <section name="Código de ejemplo">
+      <p>
+        JPetStore 6 es una aplicación web completa construida sobre MyBatis 3,
+        <a href="https://spring.io/projects/spring-framework">Spring Framework</a>
+        y <a href="https://spring.io/projects/spring-framework">Spring Web MVC</a>.
+        Está disponible para su descarga en la sección de
+        <a href="https://github.com/mybatis/jpetstore-6/releases">downloads</a>
+        del repositorio Github de MyBatis 3.
+        En esta sección haremos un recorrido por este ejemplo para comprender cómo está construido y cómo ejecutarlo.
+      </p>
+
+      <subsection name="Propósito">
+        <p>
+          Esta nueva versión de JPetStore viene con la misma idea en mente que sus predecesores:
+          <strong>hazlo fácil</strong>.
+          El propósito principal de JPetStore 6 es demostrar que una aplicación web completa puede construirse
+          con sólo unas pocas clases, y lo que es más importante, sin necesidad de tener grandes conocimientos
+          de programación. Sólo necesitas saber Java básico y SQL.
+        </p>
+        <p>
+          La sexta versión de JPetStore es la más pequeña de la familia, un 20% más pequeña que su predecesora.
+          Sólo usa 24 clases y conserva un buen diseño y estructura de programa.
+        </p>
+        <pre>
+eduardo@nomada ~ $ ./cloc-1.60.pl ~/git/jpetstore-6/src/main/
+      60 text files.
+      60 unique files.
+       3 files ignored.
+
+http://cloc.sourceforge.net v 1.60  T=0.28 s (209.8 files/s, 17722.9 lines/s)
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Java                            24            480            462           1429
+JSP                             20            148              0            984
+XML                              9             79            120             405
+CSS                              1             46              0             277
+SQL                              2             26             30             226
+HTML                             2             44              0             143
+-------------------------------------------------------------------------------
+SUM:                            58            823            612            3464
+-------------------------------------------------------------------------------
+        </pre>
+        <p>
+          Como veremos un poco después, no encontrarás código JDBC, de creación de objetos, de enlace de objetos
+          o de gestión de transacciones.
+          Y lo que es más sorprendente es que <strong>¡no encontrarás ninguna llamada al API de MyBatis!</strong>.
+          A pesar de que esto suena a magia, verás que la combinación de los mappers de MyBatis con la inyección
+          de dependencias te permite realizar aplicaciones libres de dependencia de MyBatis.
+        </p>
+      </subsection>
+
+      <subsection name="Estructura del código">
+        <p>JPetStore 6 sigue la típica estructura de una aplicación Maven.</p>
+        <pre>/jpetstore                    <tt>&lt;-- El fichero maven pom.xml va aquí.</tt>
+  /src
+    /main/
+      /java                   <tt>&lt;-- El código Java va aquí.</tt>
+        /org/
+          /mybatis
+            /jpetstore
+              /domain         <tt>&lt;-- Los objetos de negocio van aquí.</tt>
+              /mapper         <tt>&lt;-- Las interfaces mapper van aquí.</tt>
+              /service        <tt>&lt;-- La lógica de aplicación va aquí.</tt>
+              /web
+                /controller   <tt>&lt;-- Los controladores de Spring MVC van aquí.</tt>
+      /resources              <tt>&lt;-- Aquí van los recursos no-Java.</tt>
+        /org
+          /mybatis
+            /jpetstore
+              /mapper         <tt>&lt;-- Los ficheros XML de mapeo van aquí.</tt>
+        /database
+      /webapp
+        /css
+        /images
+        /WEB-INF              <tt>&lt;-- web.xml y applicationContext.xml están aquí.</tt>
+          /jsp                <tt>&lt;-- Los ficheros JSP van aquí.</tt>
+        </pre>
+      </subsection>
+
+      <subsection name="Ficheros de configuración">
+        <p>
+          Los ficheros de configuración se leen durante el arranque de la aplicación. Su propósito es configurar
+          los frameworks que componen la aplicación: Spring y MyBatis.
+          La aplicación utiliza Spring MVC para la capa web y Spring para la inyección de dependencias
+          y la gestión de transacciones.
+        </p>
+
+        <h4>web.xml</h4>
+        <p>
+          La aplicación utiliza el <code>DispatcherServlet</code> de Spring MVC como punto de entrada para las
+          peticiones web. El servlet gestiona las peticiones y las dirige a los controladores de Spring MVC.
+        </p>
+
+<source><![CDATA[
+<servlet>
+  <servlet-name>dispatcher</servlet-name>
+  <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+  <load-on-startup>1</load-on-startup>
+</servlet>
+<servlet-mapping>
+  <servlet-name>dispatcher</servlet-name>
+  <url-pattern>/</url-pattern>
+</servlet-mapping>
+]]></source>
+
+        <p>
+          Spring también utiliza un <code>ContextLoaderListener</code> para inicializar el contexto de aplicación.
+          El fichero <code>applicationContext.xml</code> contiene la configuración de los servicios, MyBatis,
+          la fuente de datos y las transacciones.
+        </p>
+
+<source><![CDATA[
+<listener>
+  <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+</listener>
+]]></source>
+
+        <p>
+          La configuración de Spring MVC permite que los controladores sean detectados automáticamente mediante
+          el escaneo de componentes. Los controladores utilizan las anotaciones de Spring MVC para mapear las
+          peticiones HTTP a los métodos correspondientes.
+        </p>
+
+<source><![CDATA[
+<context:component-scan base-package="org.mybatis.jpetstore.web" />
+]]></source>
+
+        <p>
+          Hemos acabado con la configuración web. La configuración de MyBatis y de los servicios de Spring se
+          encuentra en el fichero applicationContext.xml.
+        </p>
+
+        <h4>applicationContext.xml</h4>
+        <p>
+          Como ya sabes, el fichero applicationContext.xml es el fichero de configuración de Spring.
+          Spring es un framework de inyección de dependencias y debe conocer qué beans debe crear y cómo enlazarlos,
+          y esto es precisamente para lo que sirve el applicationContext.xml.
+        </p>
+
+        <p>
+          La primera tarea y la más sencilla que debemos hacer es indicarle a Spring dónde buscar nuestros beans
+          de servicio. Dejaremos que Spring los busque en nuestro classpath y para ello tenemos que indicar a Spring
+          el paquete base donde comenzar la búsqueda:
+        </p>
+
+<source><![CDATA[
+<context:component-scan base-package="org.mybatis.jpetstore.service" />
+]]></source>
+
+        <p>
+          <span class="label important">NOTA</span>
+          Spring no es capaz de localizar de forma automática los mappers de MyBatis.
+          Un mapper no es un bean normal y Spring no conocería cómo instanciarlos. Necesitaremos un
+          <code>MapperScannerConfigurer</code> para esta tarea, como veremos pronto.
+        </p>
+
+        <p>
+          Necesitaremos también un <code>DataSource</code> y un <code>TransactionManager</code>.
+          Como esto es una aplicación de demo usaremos un <code>DataSource</code> de test de Spring que crea
+          una base de datos HSQL en memoria y carga en ella los scripts de datos, y el
+          <code>DataSourceTransactionManager</code> estándar de Spring para gestionar transacciones.
+        </p>
+
+<source><![CDATA[
+<jdbc:embedded-database id="dataSource">
+  <jdbc:script location="classpath:database/jpetstore-hsqldb-schema.sql"/>
+  <jdbc:script location="classpath:database/jpetstore-hsqldb-dataload.sql"/>
+</jdbc:embedded-database>
+
+<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+  <property name="dataSource" ref="dataSource" />
+</bean>
+]]></source>
+
+        <p>
+          Hasta ahora, todo lo que hemos hecho es configurar Spring y ya es momento de movernos a la parte de MyBatis.
+          Como ya has aprendido del manual de MyBatis para configurar MyBatis con Spring necesitas al menos dos cosas:
+          un <code>SqlSessionFactoryBean</code> y un mapper. Así que pongámonos manos a la obra.
+          Primeramente definimos un <code>SqlSessionFactoryBean</code>:
+        </p>
+
+<source><![CDATA[
+<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+  <property name="dataSource" ref="dataSource" />
+</bean>
+]]></source>
+
+        <p>
+          Y ahora tenemos que configurar nuestros mappers. Para ello vamos a usar un <code>MapperScannerConfigurer</code>
+          que funciona de forma similar al component scan de Spring. Él buscará mappers en nuestro classpath y los
+          registrará en Spring. De forma similar a como hicimos con el component-scan de Spring debemos configurar
+          un paquete base donde iniciar la búsqueda.
+        </p>
+
+<source><![CDATA[
+<mybatis:scan base-package="org.mybatis.jpetstore.mapper" />
+]]></source>
+
+        <p>
+          Para escribir algo menos en nuestros ficheros de mapeo XML podemos utilizar alias cortos para nuestros beans.
+          El <code>SqlSessionFactoryBean</code> tiene la capacidad de buscar beans y registrar sus nombres cortos como
+          alias si configuramos la propiedad <code>typeAliasesPackage</code> como sigue:
+        </p>
+
+<source><![CDATA[
+<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+  <property name="dataSource" ref="dataSource" />
+  <property name="typeAliasesPackage" value="org.mybatis.jpetstore.domain" />
+</bean>
+]]></source>
+
+        <p>
+          Nuestra aplicación está completamente configurada y lista para ejecutarse. Pero antes de eso demos un paseo
+          por el código para ver qué pinta tiene.
+        </p>
+      </subsection>
+
+      <subsection name="Paseo por el código">
+        <p>
+          JPetStore 6 es una aplicación MVC típica con tres capas: presentación, lógica y acceso a datos.
+        </p>
+
+        <h4>Presentación</h4>
+        <p>
+          La capa de presentación está compuesta por controladores Spring MVC y ficheros JSP.
+          Los JSPs usan HTML simple y tags JSTL, mientras que los controladores utilizan las anotaciones de
+          Spring MVC para mapear las peticiones HTTP a los métodos Java correspondientes.
+        </p>
+
+        <p>
+          Dado que los controladores forman parte del contexto de Spring, podemos inyectar nuestros servicios
+          directamente en ellos. Echa un vistazo al <code>CatalogController</code>:
+        </p>
+
+<source><![CDATA[
+@Controller
+@RequestMapping("/catalog")
+public class CatalogController {
+
+  @Autowired
+  private CatalogService catalogService;
+
+  @GetMapping("/categories")
+  public String viewCategory(@RequestParam String categoryId, Model model) {
+    if (categoryId != null) {
+      model.addAttribute("productList",
+          catalogService.getProductListByCategory(categoryId));
+      model.addAttribute("category",
+          catalogService.getCategory(categoryId));
+    }
+    return VIEW_CATEGORY;
+  }
+
+  ...
+}
+]]></source>
+
+        <p>
+          Fíjate en las anotaciones de Spring MVC utilizadas por el controlador.
+          <code>@Controller</code> indica que la clase es un controlador gestionado por Spring,
+          mientras que <code>@RequestMapping</code>, <code>@GetMapping</code> y
+          <code>@PostMapping</code> permiten determinar qué método debe procesar cada petición.
+        </p>
+
+        <p>
+          Los servicios de Spring se inyectan directamente en los controladores, por lo que el controlador
+          no necesita crear ni buscar manualmente las instancias de los servicios.
+        </p>
+
+        <h4>Lógica</h4>
+        <p>
+          La lógica de aplicación está compuesta de Java beans planos que actúan como servicios y Java beans planos
+          que actúan como objetos de dominio. Esta capa se encarga de rellenar objetos de dominio con datos de base
+          de datos y de modificar la base de datos con el contenido de estos mismos objetos. Para ello esta capa
+          debe ser transaccional, esto es, debe ser capaz de realizar modificaciones atómicas en la base de datos.
+        </p>
+
+        <p>Veamos la clase <code>OrderService</code> para ver cómo hemos hecho todo esto:</p>
+
+<source><![CDATA[
+@Service
+public class OrderService {
+
+  @Autowired
+  private ItemMapper itemMapper;
+  @Autowired
+  private OrderMapper orderMapper;
+  @Autowired
+  private LineItemMapper lineItemMapper;
+
+  @Transactional
+  public void insertOrder(Order order) {
+    order.setOrderId(getNextId("ordernum"));
+    for (int i = 0; i < order.getLineItems().size(); i++) {
+      LineItem lineItem = (LineItem) order.getLineItems().get(i);
+      String itemId = lineItem.getItemId();
+      Integer increment = new Integer(lineItem.getQuantity());
+      Map<String, Object> param = new HashMap<String, Object>(2);
+      param.put("itemId", itemId);
+      param.put("increment", increment);
+      itemMapper.updateInventoryQuantity(param);
+    }
+
+    orderMapper.insertOrder(order);
+    orderMapper.insertOrderStatus(order);
+    for (int i = 0; i < order.getLineItems().size(); i++) {
+      LineItem lineItem = (LineItem) order.getLineItems().get(i);
+      lineItem.setOrderId(order.getOrderId());
+      lineItemMapper.insertLineItem(lineItem);
+    }
+  }
+]]></source>
+
+        <p>
+          Lo primero que habrás notado es que no hay código JDBC en el servicio y tampoco código de MyBatis.
+          Puedes pensar que hemos usado el patrón DAO y que el código de acceso a base de datos está en la capa
+          de acceso a datos, pero como veremos después, la capa de acceso a base de datos está construida con
+          mappers de MyBatis, que son interfaces Java simples, y este es el motivo por el que
+          <strong>no encontrarás ninguna llamada al API de MyBatis en toda la aplicación</strong>.
+          Simplemente no es necesario.
+        </p>
+
+        <p>
+          Lo segundo en lo que te puedes haber fijado es que no hay commits ni rollbacks. Esto es porque el código usa
+          la demarcación de transacciones declarativa de Spring que se soporta completamente en MyBatis-Spring.
+          La anotación <code>@Transactional</code> de Spring indica que este método es transaccional,
+          lo que significa que todas las llamadas a mappers <code>updateInventoryQuantity</code>,
+          <code>insertOrder</code> e <code>insertLineItem</code> deben finalizar con éxito.
+          En caso de que alguna de ellas falle, todas las actualizaciones que se hubieran hecho antes se desharán.
+        </p>
+
+        <h4>Persistencia</h4>
+        <p>
+          La capa de persistencia está compuesta por mappers de MyBatis.
+          Los mappers son interfaces Java simples y ficheros XML que contienen las sentencias SQL.
+          No hay código Java en esta capa.
+          Cuando se ejecuta el método <code>getOrder</code> de la interfaz mapper <code>OrderMapper</code>,
+          MyBatis ejecuta la sentencia SQL del statement <code>getOrder</code> del fichero
+          <code>OrderMapper.xml</code> y rellena el bean de dominio <code>Order</code> con los datos obtenidos.
+        </p>
+
+<source><![CDATA[
+public interface OrderMapper {
+  List<Order> getOrdersByUsername(String username);
+  Order getOrder(int orderId);
+  void insertOrder(Order order);
+  void insertOrderStatus(Order order);
+}]]></source>
+
+<source><![CDATA[
+<mapper namespace="org.mybatis.jpetstore.mapper.OrderMapper">
+
+  <cache />
+
+  <select id="getOrder" resultType="Order" parameterType="int">
+    SELECT
+      BILLADDR1 AS billAddress1,
+      BILLADDR2 AS billAddress2,
+      BILLCITY,
+      BILLCOUNTRY,
+      BILLSTATE,
+      BILLTOFIRSTNAME,
+      BILLTOLASTNAME,
+      BILLZIP,
+      SHIPADDR1 AS shipAddress1,
+      SHIPADDR2 AS shipAddress2,
+      SHIPCITY,
+      SHIPCOUNTRY,
+      SHIPSTATE,
+      SHIPTOFIRSTNAME,
+      SHIPTOLASTNAME,
+      SHIPZIP,
+      CARDTYPE,
+      COURIER,
+      CREDITCARD,
+      EXPRDATE AS expiryDate,
+      LOCALE,
+      ORDERDATE,
+      ORDERS.ORDERID,
+      TOTALPRICE,
+      USERID AS username,
+      STATUS
+    FROM ORDERS, ORDERSTATUS
+    WHERE ORDERS.ORDERID = #{value}
+      AND ORDERS.ORDERID = ORDERSTATUS.ORDERID
+  </select>
+  ...
+</mapper>
+]]></source>
+
+        <p>
+          <span class="label important">NOTE</span>
+          Puedes añadir caché a tus queries fácilmente añadiendo un elemento &lt;cache /&gt; a tu fichero de mapeo XML.
+        </p>
+      </subsection>
+
+      <subsection name="Running JPetStore">
+        <p>Te preguntarás. ¿Esto funciona? ¡Sí! Ejecutémoslo.</p>
+        <p>
+          Asumiendo que tienes un PC limpio estos son los pasos que debes seguir para ejecutar el ejemplo en Tomcat.
+        </p>
+        <ul>
+          <li>
+            Vea <a href="https://github.com/mybatis/jpetstore-6#running-with-tomcat" target="how-to-run">aquí</a>
+          </li>
+        </ul>
+
+        <p>
+          Ya estás listo para jugar con la demo, experimentar tus propios cambios o lo que tú quieras.
+        </p>
+
+        <p>
+          Y recuerda que si encuentras un bug o ves que falta algo o que hay algo mejorable
+          (por ejemplo faltan los tests!), haz un fork del repositorio, cámbialo y abre un pull request.
+          Gracias de antemano!
+        </p>
+
+        <p>
+          <span class="label important">NOTE</span>
+          JPetStore puede ejecutarse en servidores compatibles con las tecnologías Servlet y JSP utilizadas
+          por esta versión de la aplicación. Consulta la documentación del proyecto para obtener información
+          sobre los servidores y versiones probados.
+        </p>
+      </subsection>
+    </section>
+  </body>
+</document>

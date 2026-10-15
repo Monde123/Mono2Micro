@@ -1,68 +1,68 @@
-# Rapport d'Évolution Architecturale — Monolithe E-Commerce "ShopCore"
+# Architectural Evolution Report — E-Commerce Monolith "ShopCore"
 
-**Projet cible** : `/var/apps/shopcore-monolith`  
-**Généré le** : 2026-10-12 09:15:00 UTC  
-**Référence théorique** : [Convert Monolithic Application to Microservice Application](https://www.alphaxiv.org/abs/2306.08851) (Hatem Hammad, Thaer Sahmoud et Abed Al Rahman Abu Ghazala, 2023)  
-
----
-
-## 1. Synthèse Exécutive
-**Recommandation Retenue : MODULAR_MONOLITH (Monolithe Modulaire)**
-
-L'analyse démontre que l'équipe de développement comprend 3 ingénieurs et que l'objectif déclaré est la réduction de la dette technique et l'isolation des règles de facturation. Conformément au **Principe 1 de Hammad et al. (2023)** (Clarifier l'objectif avant de choisir une architecture), une scission en microservices distribués introduirait une complexité opérationnelle disproportionnée (latence réseau, cohérence éventuelle, déploiements multiples). La modularisation interne du monolithe répond à 100% des besoins sans imposer la taxe distribuée.
+**Target Project**: `/var/apps/shopcore-monolith`  
+**Generated On**: 2026-10-12 09:15:00 UTC  
+**Theoretical Reference**: [Convert Monolithic Application to Microservice Application](https://www.alphaxiv.org/abs/2306.08851) (Hatem Hammad, Thaer Sahmoud, and Abed Al Rahman Abu Ghazala, 2023)  
 
 ---
 
-## 2. Clarification des Objectifs Métier
-- **Objectif principal** : `CODEBASE_MODULARITY` (Modularisation du code et clarté des responsabilités)
-- **Motivation de l'équipe** : "Les règles de calcul de TVA et de promotions se mélangent avec le panier et les commandes."
-- **Taille de l'équipe** : 3 développeurs
-- **Résoluble au sein du monolithe ?** : **OUI** (via frontières de modules et schémas logiques isolés)
+## 1. Executive Summary
+**Selected Recommendation: MODULAR_MONOLITH**
+
+Analysis shows the development team comprises 3 engineers with a stated goal of reducing technical debt and isolating billing rules. In accordance with **Principle 1 of Hammad et al. (2023)** (Clarify objectives before choosing architecture), splitting into distributed microservices would introduce disproportionate operational complexity (network latency, eventual consistency, multiple deployments). Internal modularization of the monolith fulfills 100% of requirements without imposing the distributed tax.
 
 ---
 
-## 3. Découverte Empirique du Dépôt (Lecture Seule)
-- **Langages** : TypeScript (Node.js)
-- **Frameworks** : Express.js, Prisma ORM
-- **Fichiers scannés** : 184 fichiers (34 200 lignes de code)
-- **Faits empiriques vérifiés** :
+## 2. Business Objectives Clarification
+- **Primary Objective**: `CODEBASE_MODULARITY` (Code modularity and responsibility clarity)
+- **Team Motivation**: "VAT and promotion calculation rules are entangled with cart and orders."
+- **Team Size**: 3 developers
+- **Resolvable Within Monolith?**: **YES** (via module boundaries and isolated logical schemas)
+
+---
+
+## 3. Empirical Repository Discovery (Read-Only)
+- **Languages**: TypeScript (Node.js)
+- **Frameworks**: Express.js, Prisma ORM
+- **Scanned Files**: 184 files (34,200 lines of code)
+- **Verified Empirical Facts**:
   - `[PACKAGE_DEPENDENCY]` Prisma ORM v5.4.0 (`package.json`)
-  - `[ROUTE_DEFINITION]` Routes HTTP d'administration (`src/routes/admin.ts`)
-  - `[ROUTE_DEFINITION]` Routes de paiement (`src/routes/checkout.ts`)
-  - `[DATABASE_MIGRATION]` Modèles relationnels centraux (`User`, `Order`, `OrderItem`, `Product`, `TaxRate`)
+  - `[ROUTE_DEFINITION]` Admin HTTP routes (`src/routes/admin.ts`)
+  - `[ROUTE_DEFINITION]` Checkout HTTP routes (`src/routes/checkout.ts`)
+  - `[DATABASE_MIGRATION]` Central relational models (`User`, `Order`, `OrderItem`, `Product`, `TaxRate`)
 
 ---
 
-## 4. Analyse des Domaines Métier & Couplages (DDD)
-| Domaine Candidat | Couplage Estimé | Score Faisabilité | Tables Partagées | Recommandation |
+## 4. Business Domain & Coupling Analysis (DDD)
+| Candidate Domain | Estimated Coupling | Feasibility Score | Shared Tables | Recommendation |
 | :--- | :--- | :--- | :--- | :--- |
-| **TaxEngine** | `LOOSE` | 0.90 | `TaxRate` | Priorité 1 : Isolation modulaire immédiate |
-| **Catalog** | `MODERATE` | 0.70 | `Product` | Priorité 2 : Interface interne de consultation |
-| **OrdersCheckout** | `TIGHT` | 0.35 | `Order`, `OrderItem`, `User` | Maintenir dans le noyau transactionnel |
+| **TaxEngine** | `LOOSE` | 0.90 | `TaxRate` | Priority 1: Immediate modular isolation |
+| **Catalog** | `MODERATE` | 0.70 | `Product` | Priority 2: Internal consultation interface |
+| **OrdersCheckout** | `TIGHT` | 0.35 | `Order`, `OrderItem`, `User` | Maintain in transactional core |
 
 ---
 
-## 5. Comparaison des 4 Options Architecturales
-| Option | Complexité | Surcoût Opérationnel | Verdict |
+## 5. Comparison of 4 Architectural Options
+| Option | Complexity | Operational Overhead | Verdict |
 | :--- | :--- | :--- | :--- |
-| **Conserver le Monolithe Tel Quel** | Faible | Minime | Rejeté : Ne résout pas le spaghetti fiscal |
-| **Monolithe Modulaire (Modular Monolith)** | **Moyenne** | **Modéré** | **✓ RECOMMANDÉE** |
-| **Extraction Microservices Strangler Fig** | Élevée | Important | Déconseillé : Équipe trop petite pour le multi-déploiement |
-| **Repousser la Migration** | Faible | Minime | Non requis : Des tests de régression existent |
+| **Keep Monolith As-Is** | Low | Minimal | Rejected: Does not solve tax spaghetti |
+| **Modular Monolith** | **Medium** | **Moderate** | **✓ RECOMMENDED** |
+| **Strangler Fig Microservices Extraction** | High | Significant | Discouraged: Team too small for multi-deployment |
+| **Postpone Migration** | Low | Minimal | Not required: Regression tests exist |
 
 ---
 
-## 6. Revue Contradictoire de l'Avocat du Diable
-- **Objection [WARNING]** : Attention à la table partagée `Order` : ne pas tenter d'accès direct depuis `TaxEngine`. L'accès doit obligatoirement transiter par l'interface `ITaxCalculationService`.
-- **Scénarios de test préparés** :
-  - `TEST-ADV-REG-01` : Vérification du calcul de TVA multi-pays sous 500 requêtes concurrentes.
-  - `TEST-ADV-BOUNDARY-02` : Linter architectural confirmant l'absence d'import de `PrismaClient` dans le module `TaxEngine`.
+## 6. Devil's Advocate Adversarial Review
+- **Objection [WARNING]**: Beware of shared table `Order`: do not attempt direct access from `TaxEngine`. Access must transit through the `ITaxCalculationService` interface.
+- **Prepared Test Scenarios**:
+  - `TEST-ADV-REG-01`: Verification of multi-country VAT calculation under 500 concurrent requests.
+  - `TEST-ADV-BOUNDARY-02`: Architectural linter confirming no import of `PrismaClient` within the `TaxEngine` module.
 
 ---
 
-## 7. Quality Gate et Procédure de Retour Arrière
-- **Critères obligatoires** :
-  - Étanchéité architecturale : **PASSED** (0 import illégal)
-  - Suite de tests Jest : **PASSED** (142 tests passés en 4.2s)
-  - Intégrité transactionnelle SQL : **PASSED**
-- **Commande de Rollback** : `git checkout main && git branch -D refactor/tax-module` (Restauration en 30 secondes).
+## 7. Quality Gate and Rollback Procedure
+- **Mandatory Criteria**:
+  - Architectural Tightness: **PASSED** (0 illegal imports)
+  - Jest Test Suite: **PASSED** (142 tests passed in 4.2s)
+  - SQL Transactional Integrity: **PASSED**
+- **Rollback Command**: `git checkout main && git branch -D refactor/tax-module` (Restoration in 30 seconds).

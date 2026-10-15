@@ -1,4 +1,12 @@
-"""Mono2Micro Domain, Architecture, and Contract Models."""
+from pydantic import BaseModel
+if not hasattr(BaseModel, "model_dump"):
+    def _model_dump_compat(self, *args, **kwargs):
+        mode = kwargs.pop("mode", None)
+        if mode == "json":
+            import json
+            return json.loads(self.json())
+        return self.dict(*args, **kwargs)
+    BaseModel.model_dump = _model_dump_compat
 
 from mono2micro.models.time_utils import utc_now
 from mono2micro.models.paper_reference import (
